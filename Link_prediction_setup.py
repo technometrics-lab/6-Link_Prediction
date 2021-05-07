@@ -1,20 +1,17 @@
-from __future__ import division
 import networkx as nx
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
 import numpy as np
+import json
 from scipy.sparse.linalg import expm
-from sklearn import svm
+from networkx.readwrite import json_graph
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve
 from statsmodels.tsa.arima.model import ARIMA
-import time
 from scipy.sparse.linalg import inv
 from scipy.sparse import identity
 import warnings
 from sklearn.svm import LinearSVC
-import scipy
 from tqdm  import tqdm
-from multiprocessing import Process, Array
 
 
 warnings.filterwarnings("ignore")
@@ -157,8 +154,8 @@ def bipartite_data_edge(G,adj):
     #don't include edges that are between node in same groups
     false_edge = set()
     all_pos_edge = []
-    for x in G.graph["partition"][0]:
-        for y in G.graph["partition"][1]:
+    for x in [x for x, y in G.nodes(data=True) if y["bipartite"] == 0]:
+        for y in [x for x, y in G.nodes(data=True) if y["bipartite"] == 1]:
             false = (min(x, y), max(x, y))
             all_pos_edge.append(false)
             if false in set_edge:
@@ -257,9 +254,3 @@ def result_formater(res):
     
     
     
-arr=[]
-for n in range(1,12):
-    arr.append(nx.random_partition_graph((10,20),0,n/24))
-    
-res=calculate_time_score(arr)
-result_formater(res)
