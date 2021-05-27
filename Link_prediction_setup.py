@@ -37,7 +37,7 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
         else:
             preds_pos.append(score_matrix[edge[0], edge[1]])
 
-        
+
     # Store negative edge predictions, actual values
     preds_neg = []
 
@@ -50,7 +50,7 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
     # Calculate scores
         preds_all = np.hstack([preds_pos, preds_neg])
         labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg))])
-    
+
         roc_score = roc_auc_score(labels_all, preds_all)
         roc_curve_tuple = roc_curve
         ap_score = average_precision_score(labels_all, preds_all)
@@ -63,20 +63,20 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
         else:
             preds_all = np.hstack([preds_pos, preds_neg1])
             labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg1))])
-    
+
         roc_score = roc_auc_score(labels_all, preds_all)
         roc_curve_tuple = roc_curve
         ap_score = average_precision_score(labels_all, preds_all)
         return roc_score, ap_score, roc_curve_tuple
         return preds_pos, preds_neg
-        
+
     # return roc_score, roc_curve_tuple, ap_score
 
 
 #Input:ROC curve from scikit roc_curve() function and root bool to know which of the two method to use
 #Output: Index (labels_all, preds_all)of the optimal threshold in roccurve and value of optimal threshold
 def gmeans(roc_curve,root = False):
-    
+
     if root:
         #gmeans method found in literature
         g = np.sqrt(roc_curve[0] * (1-roc_curve[1]))
@@ -90,7 +90,7 @@ def gmeans(roc_curve,root = False):
 
 #Input:Netowrkx training graph, damping factor alpha
 #Output: Matrix of scores
-def sinh_scores(g_train, alpha = 1):
+def sinh_scores(g_train, alpha = 0.005):
     adj_train = nx.to_scipy_sparse_matrix(g_train)
     sh_scores = {}
     sinh_mat = (expm(alpha*adj_train)-expm(-alpha*adj_train))/2
@@ -116,7 +116,7 @@ def preferential_attachment_scores(g_train):
 
 #Input:Networkx training graph,max_power
 #Output: Matrix scores
-def katz_scores(g_train, max_power = 5, beta = 0.001):
+def katz_scores(g_train, max_power = 5, beta =  0.045):
     adj_train = nx.to_scipy_sparse_matrix(g_train)
     ka_scores = {}
     ka_score_matrix = (inv(identity(adj_train.shape[1])-beta*adj_train)-identity(adj_train.shape[1])).todense()
@@ -125,23 +125,23 @@ def katz_scores(g_train, max_power = 5, beta = 0.001):
 
 #Input:edge list to train on,edge list to test on, scores matrix of other metrics
 #Output: mmmmh not sure yet
-def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores):
-    
+def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, c = 0.9):
+
     train_pos, train_neg, train_all = test_split1
     test_pos, test_neg, test_all = test_split2
-        
+
     #create feature vectore for train and test
     att_train_pos = create_attributes(train_pos, ka_scores, pa_scores, sh_scores)
     att_train_neg = create_attributes(train_neg, ka_scores, pa_scores, sh_scores)
     att_test_pos = create_attributes(test_pos, ka_scores, pa_scores, sh_scores)
     att_test_neg = create_attributes(test_neg, ka_scores, pa_scores, sh_scores)
-    
+
     #Train SVM
     preds_all = np.vstack([att_train_pos, att_train_neg])
     labels_all = np.hstack([np.ones(len(train_pos)), np.zeros(len(train_neg))])
-    clf = LinearSVC()
+    clf = LinearSVC(C=c)
     clf.fit(preds_all, labels_all)
-    
+
     #Test SVM
     preds_test_all = np.vstack([att_test_pos, att_test_neg])
     labels_test = np.hstack([np.ones(len(test_pos)), np.zeros(len(test_neg))])
@@ -158,9 +158,9 @@ def sparse_to_tuple(sparse_mx):
     return coords, values, shape
 
 #Input:Networkx graph with partition attribute otherwise it wont work,adjacency matrix of the graph
-#Output:Present edge list, non present edge list, all possible edge list 
+#Output:Present edge list, non present edge list, all possible edge list
 def bipartite_data_edge(G,adj):
-    
+
     #get upper triangular of adj since it contains all possible edges(even more than all possibles in bipartite)
     adj_triu = sp.triu(adj)
     edges_tuple = sparse_to_tuple(adj_triu)
@@ -180,9 +180,9 @@ def bipartite_data_edge(G,adj):
                 continue
             else:
                 false_edge.add(false)
-                
+
     edge_neg = np.array([list(edge_tuple) for edge_tuple in false_edge])
-    
+
     return np.array(edge_tuples), edge_neg, all_pos_edge
 
 #Input:edge list to create feature vector for, scores matrices
@@ -206,7 +206,7 @@ def calculate_time_score(arr):
     pa_mat = []
     sh_mat = []
     uns_res = {}
-    
+
     for n in range(len(arr)-1):
         print(n)
         g0 = arr[n]
@@ -223,30 +223,30 @@ def calculate_time_score(arr):
         ka_mat.append(mat_to_arr(ka_scores))
         pa_mat.append(mat_to_arr(pa_scores))
         sh_mat.append(mat_to_arr(sh_scores))
-        
+
 
     true_ka = np.array(ka_mat).reshape((len(arr)-1, ka_mat[0].shape[1]))
     true_pa = np.array(pa_mat).reshape((len(arr)-1, pa_mat[0].shape[1]))
     true_sh = np.array(sh_mat).reshape((len(arr)-1, sh_mat[0].shape[1]))
 
     g1=nx.random_partition_graph((2927,69),0,1)
-    
+
     adj=nx.to_scipy_sparse_matrix(g1).todense()
-    t=mat_to_arr(adj)    
-    
+    t=mat_to_arr(adj)
+
     train = bipartite_data_edge(arr[-2], nx.to_scipy_sparse_matrix(arr[-2]))
     test_pos, test_neg, all_edge = bipartite_data_edge(arr[-1], nx.to_scipy_sparse_matrix(arr[-1]))
     pred_ka = time_series_predict(true_ka,t).reshape(ka_scores.shape)
     pred_pa = time_series_predict(true_pa,t).reshape(pa_scores.shape)
     pred_sh = time_series_predict(true_sh,t).reshape(sh_scores.shape)
-    
+
     pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, all_edge], pred_ka, pred_pa, pred_sh)
 
     uns_res["ka"] = get_roc_score(test_pos, test_neg, pred_ka)
     uns_res["pa"] = get_roc_score(test_pos,test_neg, pred_pa)
     uns_res["sh"] = get_roc_score(test_pos,test_neg, pred_sh)
     uns_res["svm"] = roc_auc_score(labels_svm,pred_svm), average_precision_score(labels_svm,pred_svm), roc_curve(labels_svm,pred_svm)
-    
+
     return uns_res
 
 
@@ -278,7 +278,7 @@ def result_formater(res):
     for key in res.keys():
         test_fpr, test_tpr, threshold = res[key][2]
         plt.plot(test_fpr, test_tpr, label = label[key] + str(round(res[key][0],3)))
-    
+
     plt.legend(loc = "lower right")
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
@@ -295,9 +295,28 @@ def cross_val(arr):
     for n in range(3,len(arr)+1):
         res=calculate_time_score(arr[0:n])
         for k in key:
-            mean_res[k] += res[k][0]/(len(arr)-2)    
+            mean_res[k] += res[k][0]/(len(arr)-2)
     return mean_res
 
+def opti_hyperparam(arr):
+    res = []
+    best=0
+    alphabest=0
+    for a in tqdm(np.arange(0.1,1,0.1)):
+        for n in range(len(arr)-1):
+            g0 = arr[n]
+            ka_scores = katz_scores(g0)["mat"]
+            sh_scores = sinh_scores(g0)["mat"]
+            pa_scores = preferential_attachment_scores(g0)["mat"]
+            test_pos, test_neg, test_all = bipartite_data_edge(arr[n+1], nx.to_scipy_sparse_matrix(arr[n+1]))
+            train = bipartite_data_edge(arr[n], nx.to_scipy_sparse_matrix(arr[n]))
+            pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, test_all], ka_scores, pa_scores, sh_scores,a)
+            res.append(roc_auc_score(labels_svm,pred_svm))
+        if sum(res)/len(res)>best:
+            best = sum(res)/len(res)
+            alphabest=a
+
+    return alphabest, best
 
 path = ["01","02","03","04","05","06","07","08","09","10","11"]
 arr = []
@@ -308,6 +327,3 @@ for p in path:
         g=json_graph.node_link_graph(data)
         g.name=p
         arr.append(g)
-
-
-

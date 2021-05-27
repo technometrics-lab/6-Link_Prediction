@@ -235,6 +235,7 @@ def graph_maker(path,cutoff):
     company_id_list,tech_comp_indeed, tech_comp_patent  = prepare_data(args,cutoff)
 
     G = make_graph(company_id_list, tech_comp_indeed, tech_comp_patent)
+    G.name=path[0:6]
 
     res = json_graph.node_link_data(G)
     dir = "graphs/"

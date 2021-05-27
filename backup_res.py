@@ -37,7 +37,7 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
         else:
             preds_pos.append(score_matrix[edge[0], edge[1]])
 
-        
+
     # Store negative edge predictions, actual values
     preds_neg = []
 
@@ -50,7 +50,7 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
     # Calculate scores
         preds_all = np.hstack([preds_pos, preds_neg])
         labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg))])
-    
+
         roc_score = roc_auc_score(labels_all, preds_all)
         roc_curve_tuple = roc_curve(labels_all, preds_all)
         ap_score = average_precision_score(labels_all, preds_all)
@@ -63,19 +63,19 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
         else:
             preds_all = np.hstack([preds_pos, preds_neg1])
             labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg1))])
-    
+
         roc_score = roc_auc_score(labels_all, preds_all)
         roc_curve_tuple = roc_curve(labels_all, preds_all)
         ap_score = average_precision_score(labels_all, preds_all)
         return roc_score, ap_score, roc_curve_tuple
-        
+
     # return roc_score, roc_curve_tuple, ap_score
 
 
 #Input:ROC curve from scikit roc_curve() function and root bool to know which of the two method to use
 #Output: Index (labels_all, preds_all)of the optimal threshold in roccurve and value of optimal threshold
 def gmeans(roc_curve,root = False):
-    
+
     if root:
         #gmeans method found in literature
         g = np.sqrt(roc_curve[0] * (1-roc_curve[1]))
@@ -125,22 +125,22 @@ def katz_scores(g_train, max_power = 5, beta = 0.045):
 #Input:edge list to train on,edge list to test on, scores matrix of other metrics
 #Output: mmmmh not sure yet
 def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores,c = 0.9):
-    
+
     train_pos, train_neg, train_all = test_split1
     test_pos, test_neg, test_all = test_split2
-        
+
     #create feature vectore for train and test
     att_train_pos = create_attributes(train_pos, ka_scores, pa_scores, sh_scores)
     att_train_neg = create_attributes(train_neg, ka_scores, pa_scores, sh_scores)
     att_test_pos = create_attributes(test_pos, ka_scores, pa_scores, sh_scores)
     att_test_neg = create_attributes(test_neg, ka_scores, pa_scores, sh_scores)
-    
+
     #Train SVM
     preds_all = np.vstack([att_train_pos, att_train_neg])
     labels_all = np.hstack([np.ones(len(train_pos)), np.zeros(len(train_neg))])
     clf = LinearSVC(C=c)
     clf.fit(preds_all, labels_all)
-    
+
     #Test SVM
     preds_test_all = np.vstack([att_test_pos, att_test_neg])
     labels_test = np.hstack([np.ones(len(test_pos)), np.zeros(len(test_neg))])
@@ -157,9 +157,9 @@ def sparse_to_tuple(sparse_mx):
     return coords, values, shape
 
 #Input:Networkx graph with partition attribute otherwise it wont work,adjacency matrix of the graph
-#Output:Present edge list, non present edge list, all possible edge list 
+#Output:Present edge list, non present edge list, all possible edge list
 def bipartite_data_edge(G,adj):
-    
+
     #get upper triangular of adj since it contains all possible edges(even more than all possibles in bipartite)
     adj_triu = sp.triu(adj)
     edges_tuple = sparse_to_tuple(adj_triu)
@@ -179,9 +179,9 @@ def bipartite_data_edge(G,adj):
                 continue
             else:
                 false_edge.add(false)
-                
+
     edge_neg = np.array([list(edge_tuple) for edge_tuple in false_edge])
-    
+
     return np.array(edge_tuples), edge_neg, all_pos_edge
 
 #Input:edge list to create feature vector for, scores matrices
@@ -218,12 +218,12 @@ def calculate_time_score(arr):
         time1 = time.time()
         sh_scores = sinh_scores(g0)["mat"]
         print("sh time: ", time.time() - time1)
-        
+
         train = bipartite_data_edge(arr[n], nx.to_scipy_sparse_matrix(arr[n]))
         test_pos, test_neg, test_all = bipartite_data_edge(arr[n+1], nx.to_scipy_sparse_matrix(arr[n+1]))
-        
+
         pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, test_all], ka_scores, pa_scores, sh_scores)
-        
+
         ka_res.append(get_roc_score(test_pos,test_neg, ka_scores))
         pa_res.append(get_roc_score(test_pos,test_neg, pa_scores))
         sh_res.append(get_roc_score(test_pos,test_neg, sh_scores))
@@ -234,7 +234,7 @@ def calculate_time_score(arr):
     res["pa"]=pa_res
     res["sh"]=sh_res
     res["svm"]=svm_res
-    
+
     return res
 
 
@@ -277,10 +277,10 @@ def result_formater(res):
                 maxkey=n
             AUC[key] += res[key][n][0]/len(res[key])
             APR[key] += res[key][n][1]/len(res[key])
-            
+
         test_fpr, test_tpr, threshold = res[key][maxkey][2]
         plt.plot(test_fpr, test_tpr, label = label[key] + str(round(max1,3)))
-    
+
     plt.legend(loc = "lower right")
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
@@ -289,7 +289,7 @@ def result_formater(res):
 
 
 
-def opti_katz(arr):
+def opti_hyperparam(arr):
     res = []
     best=0
     alphabest=0
@@ -306,7 +306,7 @@ def opti_katz(arr):
         if sum(res)/len(res)>best:
             best = sum(res)/len(res)
             alphabest=a
-    
+
     return alphabest, best
 
 
