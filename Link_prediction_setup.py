@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import scipy.sparse as sp
 import numpy as np
 import json
+import time
 from scipy.sparse.linalg import expm
 from networkx.readwrite import json_graph
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve
@@ -12,6 +13,7 @@ from scipy.sparse import identity
 import warnings
 from sklearn.svm import LinearSVC
 from tqdm  import tqdm
+
 
 
 warnings.filterwarnings("ignore")
@@ -44,20 +46,35 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
             preds_neg.append(sigmoid(score_matrix[edge[0], edge[1]]))
         else:
             preds_neg.append(score_matrix[edge[0], edge[1]])
-        
+    try:
     # Calculate scores
-    preds_all = np.hstack([preds_pos, preds_neg])
-    labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg))])
-
-    roc_score = roc_auc_score(labels_all, preds_all)
-    roc_curve_tuple = roc_curve(labels_all, preds_all)
-    ap_score = average_precision_score(labels_all, preds_all)
+        preds_all = np.hstack([preds_pos, preds_neg])
+        labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg))])
     
+        roc_score = roc_auc_score(labels_all, preds_all)
+        roc_curve_tuple = roc_curve
+        ap_score = average_precision_score(labels_all, preds_all)
+        return roc_score, ap_score, roc_curve_tuple
+    except:
+        preds_neg1=[x[0] for x in preds_neg]
+        if sum(preds_pos)==0:
+            preds_all = np.hstack([preds_neg1, preds_pos])
+            labels_all = np.hstack([np.ones(len(preds_neg1)), np.zeros(len(preds_pos))])
+        else:
+            preds_all = np.hstack([preds_pos, preds_neg1])
+            labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg1))])
+    
+        roc_score = roc_auc_score(labels_all, preds_all)
+        roc_curve_tuple = roc_curve
+        ap_score = average_precision_score(labels_all, preds_all)
+        return roc_score, ap_score, roc_curve_tuple
+        return preds_pos, preds_neg
+        
     # return roc_score, roc_curve_tuple, ap_score
-    return roc_score, ap_score, roc_curve_tuple
+
 
 #Input:ROC curve from scikit roc_curve() function and root bool to know which of the two method to use
-#Output: Index of the optimal threshold in roccurve and value of optimal threshold
+#Output: Index (labels_all, preds_all)of the optimal threshold in roccurve and value of optimal threshold
 def gmeans(roc_curve,root = False):
     
     if root:
@@ -76,7 +93,7 @@ def gmeans(roc_curve,root = False):
 def sinh_scores(g_train, alpha = 1):
     adj_train = nx.to_scipy_sparse_matrix(g_train)
     sh_scores = {}
-    sinh_mat = (expm(adj_train)-expm(-adj_train))/2
+    sinh_mat = (expm(alpha*adj_train)-expm(-alpha*adj_train))/2
     sinh_mat = sinh_mat/sinh_mat.max()
     sinh_mat = sinh_mat.todense()
     sh_scores["mat"] = sinh_mat
@@ -91,7 +108,8 @@ def preferential_attachment_scores(g_train):
     pa_matrix = np.zeros(adj_train.shape)
     for u, v, p in nx.preferential_attachment(g_train):# (u, v) = node indices, p = Jaccard coefficient
         pa_matrix[u][v] = p
-        pa_matrix[v][u] = p # make sure it's symmetric
+        pa_matrix[v][u] = p
+        # make sure it's symmetric
     pa_matrix = pa_matrix / pa_matrix.max() # Normalize matrix
     pa_scores["mat"] = pa_matrix
     return pa_scores
@@ -190,29 +208,41 @@ def calculate_time_score(arr):
     uns_res = {}
     
     for n in range(len(arr)-1):
+        print(n)
         g0 = arr[n]
-        
+        time1 = time.time()
         pa_scores = preferential_attachment_scores(g0)["mat"]
+        print("PA time: ", time.time() - time1)
+        time1=time.time()
         ka_scores = katz_scores(g0)["mat"]
+        print("KA time: ", time.time() - time1)
+        time1=time.time()
         sh_scores = sinh_scores(g0)["mat"]
-        
+        print("sh time: ", time.time() - time1)
+
         ka_mat.append(mat_to_arr(ka_scores))
         pa_mat.append(mat_to_arr(pa_scores))
         sh_mat.append(mat_to_arr(sh_scores))
-    
+        
+
     true_ka = np.array(ka_mat).reshape((len(arr)-1, ka_mat[0].shape[1]))
     true_pa = np.array(pa_mat).reshape((len(arr)-1, pa_mat[0].shape[1]))
     true_sh = np.array(sh_mat).reshape((len(arr)-1, sh_mat[0].shape[1]))
+
+    g1=nx.random_partition_graph((2927,69),0,1)
+    
+    adj=nx.to_scipy_sparse_matrix(g1).todense()
+    t=mat_to_arr(adj)    
     
     train = bipartite_data_edge(arr[-2], nx.to_scipy_sparse_matrix(arr[-2]))
     test_pos, test_neg, all_edge = bipartite_data_edge(arr[-1], nx.to_scipy_sparse_matrix(arr[-1]))
+    pred_ka = time_series_predict(true_ka,t).reshape(ka_scores.shape)
+    pred_pa = time_series_predict(true_pa,t).reshape(pa_scores.shape)
+    pred_sh = time_series_predict(true_sh,t).reshape(sh_scores.shape)
     
-    pred_ka = time_series_predict(true_ka).reshape(ka_scores.shape)
-    pred_pa = time_series_predict(true_pa).reshape(pa_scores.shape)
-    pred_sh = time_series_predict(true_sh).reshape(sh_scores.shape)
     pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, all_edge], pred_ka, pred_pa, pred_sh)
-    
-    uns_res["ka"] = get_roc_score(test_pos,test_neg, pred_ka)
+
+    uns_res["ka"] = get_roc_score(test_pos, test_neg, pred_ka)
     uns_res["pa"] = get_roc_score(test_pos,test_neg, pred_pa)
     uns_res["sh"] = get_roc_score(test_pos,test_neg, pred_sh)
     uns_res["svm"] = roc_auc_score(labels_svm,pred_svm), average_precision_score(labels_svm,pred_svm), roc_curve(labels_svm,pred_svm)
@@ -230,10 +260,13 @@ def mat_to_arr(mat):
 
 #Input:array of flattened metrics score
 #Output: predicted one step ahead metrics score
-def time_series_predict(arr):
+def time_series_predict(arr,should):
     predicted = []
     for n in tqdm(range(arr.shape[1])):
-        predicted.append(ARIMA(arr[:, n].T, order=(1,0,0)).fit().forecast())
+        if should[0,n] == 1:
+            predicted.append(ARIMA(arr[:, n].T, order=(1,0,0)).fit().forecast())
+        else:
+            predicted.append(0)
     return np.asarray(predicted)
 
 
@@ -250,7 +283,31 @@ def result_formater(res):
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.title("ROC Curve")
-    plt.show()
-    
-    
-    
+    plt.savefig("res1.png")
+
+def cross_val(arr):
+    if len(arr)<3:
+        raise ValueError("wesh")
+    key=["ka","pa","sh","svm"]
+    mean_res={}
+    for k in key:
+        mean_res[k]=0
+    for n in range(3,len(arr)+1):
+        res=calculate_time_score(arr[0:n])
+        for k in key:
+            mean_res[k] += res[k][0]/(len(arr)-2)    
+    return mean_res
+
+
+path = ["01","02","03","04","05","06","07","08","09","10","11"]
+arr = []
+for p in path:
+    result_path = "test_graphs/graph" + p + ".json"
+    with open(result_path, 'r', encoding = 'utf-8') as file:
+        data = json.load(file)
+        g=json_graph.node_link_graph(data)
+        g.name=p
+        arr.append(g)
+
+
+

@@ -16,19 +16,17 @@ from multiprocessing import Process
 def Cleaner(g,real_label):
 
     label = nx.get_node_attributes(g, "content")
-    val = real_label.values()
+    d={}
     for key, item in tqdm(label.items()):
-        if item not in val:
-           g.remove_node(key)
-           continue
     
         key_item = get_key(real_label,item)
-        
-        if not key_item == key:
-             nx.relabel_nodes(g, {key : key_item},copy=False)
+        if not key_item==key:
+            d[key]=key_item
+    
+    g=nx.relabel_nodes(g,d)
              
     res = json_graph.node_link_data(g)
-    dir = "relabeled_graphs/"
+    dir = "test_graphs/"
     if not os.path.exists(dir):
         os.makedirs(dir)
         
@@ -59,20 +57,21 @@ class Labeler(Process):
 
 if __name__ == '__main__':
     
-    path = ["01","02","03","04","05","06","07","08","09","10","11","12"]
+    path = ["01","02","03","04","05","06","07","08","09","10","11"]
     arr = []
     for p in path:
-        result_path = "graphs/graph" + p + ".json"
+        result_path = "cleaner_graphs/graph" + p + ".json"
         with open(result_path, 'r', encoding = 'utf-8') as file:
             data = json.load(file)
             g=json_graph.node_link_graph(data)
             g.name=p
             arr.append(g)
-        
+    
+
     label=nx.get_node_attributes(arr[0],"content")
     labeler_list=[]
 
-    for g in arr[1:-1]:
+    for g in arr[1:]:
         labeler=Labeler(g,label)
         labeler_list.append(labeler)
         labeler.start()
@@ -83,12 +82,3 @@ if __name__ == '__main__':
             
             
             
-#     iso_set = set(nx.isolates(arr[0]))
-#     for n in range(1, len(arr)):
-#         print(n)
-#         iso_set = iso_set & set(nx.isolates(arr[n]))
-#     for G in arr:
-#         G.remove_nodes_from(iso_set)
-#     for g in arr:
-#         l=list(nx.isolates(g))
-#         g.remove_nodes_from(l)
