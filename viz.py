@@ -6,17 +6,60 @@ Created on Tue May 11 15:49:53 2021
 """
 
 import json
-import networkx as nx
-from networkx.readwrite import json_graph
-from viz_graph import *
 import random
 import glob
+import math
+import networkx as nx
+from networkx.readwrite import json_graph
+import matplotlib.pyplot as plt
+import numpy as np
 
 def get_key(dict, search_item):
     for key, item in dict.items():
         if item == search_item:
             return key
 
+def describe_graph(G):
+    print(nx.info(G))
+    if nx.is_connected(G):
+        print("Diameter: %.4f" %nx.diameter(G)) # Longest shortest path
+    else:
+        print("Diameter and Avg shortest path length are not defined!")
+
+    print("Sparsity: %.4f" %nx.density(G))  # #edges/#edges-complete-graph
+
+    print("Global clustering coefficient aka Transitivity: %.4f" %nx.transitivity(G))
+
+def visualize_graph(G, with_labels=True, k=None, alpha=0.4, node_shape="o"):
+    #nx.draw_spring(G, with_labels=with_labels, alpha = alpha)
+    set2 = [n for n in G.nodes if G.nodes(data="bipartite")[n]==1]
+    set1 = [n for n in G.nodes if G.nodes(data="bipartite")[n]==0]
+
+    companyDegree = nx.degree(G, set1)
+    valueDegree = nx.degree(G, set2)
+
+    plt.figure(1, figsize=(25, 15))
+    k = 2.3/math.sqrt(G.order())
+    pos = nx.spring_layout(G, k=k)
+
+    if with_labels:
+        lab1 = nx.draw_networkx_labels(G, pos, labels=dict([(n, G.nodes(data="name")[n]) for n in G.nodes()]), font_size=20)
+
+    nc2 = nx.draw_networkx_nodes(G, pos, nodelist=set2, node_color='r', node_shape=node_shape,alpha=0.25,
+                                 node_size=[v * 200 for v in dict(valueDegree).values()])
+
+    nc1 = nx.draw_networkx_nodes(G, pos, nodelist=set1, node_color='g', node_shape=node_shape,alpha=0.25,
+                                 node_size=[v * 100 for v in dict(companyDegree).values()])
+
+    ec = nx.draw_networkx_edges(G, pos, alpha=alpha)
+
+    plt.axis('off')
+    axis = plt.gca()
+    axis.set_xlim([1.2 * x for x in axis.get_xlim()])
+    axis.set_ylim([1.2 * y for y in axis.get_ylim()])
+    plt.tight_layout()
+    plt.savefig("figures/graph"+G.name+".pdf",format="pdf")
+    plt.close()
 
 def clean_reduce(g) -> None:
     map_path = "company_matcher2.json"
@@ -32,12 +75,20 @@ def clean_reduce(g) -> None:
     set1 = [n for n in list(g) if g.nodes[n]["bipartite"]==0]
     set2 = [n for n in list(g) if g.nodes[n]["bipartite"]==1]
 
-    deg_comp = g.degree(set1)
-    print(deg_comp)
-    deg_val=[deg_comp[n] for n in set1]
-    top3=[get_key(deg_comp,n) for n in sorted(deg_val)[0:3]]
-    print(top3)
-    # visualize_graph(G_min1)
+    deg_comp = dict(g.degree(set1))
+    top3=[get_key(deg_comp,n) for n in sorted(set(deg_comp.values()),reverse=True)[0:3]]
+    n1=list(set([n for n in g.neighbors(top3[0])]))
+    n2=list(set([n for n in g.neighbors(top3[1])]))
+    n3=list(set([n for n in g.neighbors(top3[2])]))
+    n1=random.choices(n1,k=10)
+    n2=random.choices(n2,k=8)
+    n3=random.choices(n3,k=5)
+    n1.extend(n2)
+    n1.extend(n3)
+    n1.extend(top3)
+    n1=set(n1)
+    G_min=nx.subgraph(g,n1)
+    visualize_graph(G_min)
 
 dir = "final_graph/graph*"
 for path in glob.glob(dir,recursive=True):
