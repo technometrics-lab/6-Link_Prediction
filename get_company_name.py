@@ -5,14 +5,15 @@ import networkx as nx
 from networkx.readwrite import json_graph
 import time
 
-result_path = "test_graphs/graph11.json"
+result_path = "final_graph/graph201803.json"
 with open(result_path, 'r', encoding = 'utf-8') as file:
     data = json.load(file)
     g = json_graph.node_link_graph(data)
-browser = webdriver.Chrome()
+browser = webdriver.Firefox()
 mapping={}
-for n, comp in nx.get_node_attributes(g, "content").items():
-    company = comp[0]
+
+for comp in list(g):
+    company = comp
     if not company.startswith("CH"):
         print(company)
         continue
@@ -26,6 +27,6 @@ for n, comp in nx.get_node_attributes(g, "content").items():
         continue
     mapping[company] = res[0]["title"]
 
-with open("company_matcher.json", "w") as fp:
+with open("company_matcher2.json", "w") as fp:
     json.dump(mapping, fp, sort_keys = True, indent = 4)
 browser.quit()

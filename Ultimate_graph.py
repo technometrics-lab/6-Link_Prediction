@@ -205,19 +205,19 @@ def make_graph(company_id_list,tech_comp_indeed, tech_comp_patent):
 def graph_maker(path,cutoff):
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--company',
-                        default="/mnt/tmm_share/sel_data/"+path+"/company.json/",
+                        default="Z:/sel_data/"+path+"/company.json/",
                         type=str,
                         help='path to folder of spacy-indeed result')
     parser.add_argument('-i', '--indeed',
-                        default="/mnt/tmm_share/sel_data/"+path+"/indeed/",
+                        default="Z:/sel_data/"+path+"/indeed/",
                         type=str,
                         help='path to folder of spacy-patent result')
     parser.add_argument('-m', '--mag',
-                        default="/mnt/tmm_share/sel_data/"+path+"/mag/",
+                        default="Z:/sel_data/"+path+"/mag/",
                         type=str,
                         help='path to folder of spacy-register result')
     parser.add_argument('-pv', '--patentsview',
-                        default="/mnt/tmm_share/sel_data/"+path+"/patentsview/",
+                        default="Z:/sel_data/"+path+"/patentsview/",
                         type=str,
                         help='path to folder of indeed result')
     parser.add_argument('-od', '--output_data',
@@ -238,7 +238,7 @@ def graph_maker(path,cutoff):
     G.name=path[0:6]
 
     res = json_graph.node_link_data(G)
-    dir = "graphs/"
+    dir = "graphs12232/"
     if not os.path.exists(dir):
         os.makedirs(dir)
 
@@ -259,7 +259,7 @@ class Graph(Process):
 
     def run(self):
         print("start")
-        cutoff=100000000
+        cutoff=500
         graph_maker(self.path,cutoff)
         print("stop")
 
@@ -271,7 +271,7 @@ if __name__=='__main__':
                "20181001T000000","20181101T000000","20181201T000000"]
 
     graph_list=[]
-    for path in path_list:
+    for path in path_list[0:1]:
         graph=Graph(path)
         graph_list.append(graph)
         graph.start()

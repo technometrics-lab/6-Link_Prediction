@@ -29,7 +29,7 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
     if len(edges_pos) == 0 or len(edges_neg) == 0:
         return (None, None, None)
 
-    # Store positive edge predictions, actual values
+    # Store positive edge predictions
     preds_pos = []
     for edge in edges_pos:
         if apply_sigmoid == True:
@@ -46,8 +46,10 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
             preds_neg.append(sigmoid(score_matrix[edge[0], edge[1]]))
         else:
             preds_neg.append(score_matrix[edge[0], edge[1]])
+    #sometimes it fails due to some numbers being arrays but i havent found The
+    #issue
     try:
-    # Calculate scores
+        # Calculate scores
         preds_all = np.hstack([preds_pos, preds_neg])
         labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg))])
 
@@ -56,7 +58,9 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
         ap_score = average_precision_score(labels_all, preds_all)
         return roc_score, ap_score, roc_curve_tuple
     except:
+        #handles the exception
         preds_neg1=[x[0] for x in preds_neg]
+        #sometimes it switches the neg and pos so if it happens it switch back
         if sum(preds_pos)==0:
             preds_all = np.hstack([preds_neg1, preds_pos])
             labels_all = np.hstack([np.ones(len(preds_neg1)), np.zeros(len(preds_pos))])
@@ -68,9 +72,7 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
         roc_curve_tuple = roc_curve
         ap_score = average_precision_score(labels_all, preds_all)
         return roc_score, ap_score, roc_curve_tuple
-        return preds_pos, preds_neg
 
-    # return roc_score, roc_curve_tuple, ap_score
 
 
 #Input:ROC curve from scikit roc_curve() function and root bool to know which of the two method to use
@@ -84,6 +86,7 @@ def gmeans(roc_curve,root = False):
         #basic method
         g = roc_curve[1]-roc_curve[0]
 
+    #find index of optimal threshold, then the threshold
     ind = np.argmax(g)
     threshold = roc_curve[2][ind]
     return ind, threshold
@@ -91,19 +94,17 @@ def gmeans(roc_curve,root = False):
 #Input:Netowrkx training graph, damping factor alpha
 #Output: Matrix of scores
 def sinh_scores(g_train, alpha = 0.005):
+    #compute adjacency matrix
     adj_train = nx.to_scipy_sparse_matrix(g_train)
-    sh_scores = {}
     sinh_mat = (expm(alpha*adj_train)-expm(-alpha*adj_train))/2
     sinh_mat = sinh_mat/sinh_mat.max()
     sinh_mat = sinh_mat.todense()
-    sh_scores["mat"] = sinh_mat
-    return sh_scores
+    return sinh_mat
 
 # Input: NetworkX training graph
 # Output: Score matrix
 def preferential_attachment_scores(g_train):
     adj_train = nx.to_scipy_sparse_matrix(g_train)
-    pa_scores = {}
     # Calculate scores
     pa_matrix = np.zeros(adj_train.shape)
     for u, v, p in nx.preferential_attachment(g_train):# (u, v) = node indices, p = Jaccard coefficient
@@ -111,8 +112,8 @@ def preferential_attachment_scores(g_train):
         pa_matrix[v][u] = p
         # make sure it's symmetric
     pa_matrix = pa_matrix / pa_matrix.max() # Normalize matrix
-    pa_scores["mat"] = pa_matrix
-    return pa_scores
+
+    return pa_matrix
 
 #Input:Networkx training graph,max_power
 #Output: Matrix scores
@@ -120,8 +121,7 @@ def katz_scores(g_train, max_power = 5, beta =  0.045):
     adj_train = nx.to_scipy_sparse_matrix(g_train)
     ka_scores = {}
     ka_score_matrix = (inv(identity(adj_train.shape[1])-beta*adj_train)-identity(adj_train.shape[1])).todense()
-    ka_scores["mat"] = ka_score_matrix
-    return ka_scores
+    return ka_score_matrix
 
 #Input:edge list to train on,edge list to test on, scores matrix of other metrics
 #Output: mmmmh not sure yet
@@ -211,13 +211,13 @@ def calculate_time_score(arr):
         print(n)
         g0 = arr[n]
         time1 = time.time()
-        pa_scores = preferential_attachment_scores(g0)["mat"]
+        pa_scores = preferential_attachment_scores(g0)
         print("PA time: ", time.time() - time1)
         time1=time.time()
-        ka_scores = katz_scores(g0)["mat"]
+        ka_scores = katz_scores(g0)
         print("KA time: ", time.time() - time1)
         time1=time.time()
-        sh_scores = sinh_scores(g0)["mat"]
+        sh_scores = sinh_scores(g0)
         print("sh time: ", time.time() - time1)
 
         ka_mat.append(mat_to_arr(ka_scores))
@@ -305,9 +305,9 @@ def opti_hyperparam(arr):
     for a in tqdm(np.arange(0.1,1,0.1)):
         for n in range(len(arr)-1):
             g0 = arr[n]
-            ka_scores = katz_scores(g0)["mat"]
-            sh_scores = sinh_scores(g0)["mat"]
-            pa_scores = preferential_attachment_scores(g0)["mat"]
+            ka_scores = katz_scores(g0)
+            sh_scores = sinh_scores(g0)
+            pa_scores = preferential_attachment_scores(g0)
             test_pos, test_neg, test_all = bipartite_data_edge(arr[n+1], nx.to_scipy_sparse_matrix(arr[n+1]))
             train = bipartite_data_edge(arr[n], nx.to_scipy_sparse_matrix(arr[n]))
             pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, test_all], ka_scores, pa_scores, sh_scores,a)

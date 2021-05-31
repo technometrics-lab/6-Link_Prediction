@@ -91,18 +91,15 @@ def gmeans(roc_curve,root = False):
 #Output: Matrix of scores
 def sinh_scores(g_train, alpha = 0.005):
     adj_train = nx.to_scipy_sparse_matrix(g_train)
-    sh_scores = {}
     sinh_mat = (expm(alpha*adj_train)-expm(-alpha*adj_train))/2
     sinh_mat = sinh_mat/sinh_mat.max()
     sinh_mat = sinh_mat.todense()
-    sh_scores["mat"] = sinh_mat
-    return sh_scores
+    return sinh_mat
 
 # Input: NetworkX training graph
 # Output: Score matrix
 def preferential_attachment_scores(g_train):
     adj_train = nx.to_scipy_sparse_matrix(g_train)
-    pa_scores = {}
     # Calculate scores
     pa_matrix = np.zeros(adj_train.shape)
     for u, v, p in nx.preferential_attachment(g_train):# (u, v) = node indices, p = Jaccard coefficient
@@ -110,17 +107,15 @@ def preferential_attachment_scores(g_train):
         pa_matrix[v][u] = p
         # make sure it's symmetric
     pa_matrix = pa_matrix / pa_matrix.max() # Normalize matrix
-    pa_scores["mat"] = pa_matrix
-    return pa_scores
+
+    return pa_matrix
 
 #Input:Networkx training graph,max_power
 #Output: Matrix scores
 def katz_scores(g_train, max_power = 5, beta = 0.045):
     adj_train = nx.to_scipy_sparse_matrix(g_train)
-    ka_scores = {}
     ka_score_matrix = (inv(identity(adj_train.shape[1])-beta*adj_train)-identity(adj_train.shape[1])).todense()
-    ka_scores["mat"] = ka_score_matrix
-    return ka_scores
+    return ka_score_matrix
 
 #Input:edge list to train on,edge list to test on, scores matrix of other metrics
 #Output: mmmmh not sure yet
@@ -210,13 +205,13 @@ def calculate_time_score(arr):
         print(n)
         g0 = arr[n]
         time1 = time.time()
-        pa_scores = preferential_attachment_scores(g0)["mat"]
+        pa_scores = preferential_attachment_scores(g0)
         print("PA time: ", time.time() - time1)
         time1 = time.time()
-        ka_scores = katz_scores(g0)["mat"]
+        ka_scores = katz_scores(g0)
         print("KA time: ", time.time() - time1)
         time1 = time.time()
-        sh_scores = sinh_scores(g0)["mat"]
+        sh_scores = sinh_scores(g0)
         print("sh time: ", time.time() - time1)
 
         train = bipartite_data_edge(arr[n], nx.to_scipy_sparse_matrix(arr[n]))
@@ -296,9 +291,9 @@ def opti_hyperparam(arr):
     for a in tqdm(np.arange(0.1,1,0.1)):
         for n in range(len(arr)-1):
             g0 = arr[n]
-            ka_scores = katz_scores(g0)["mat"]
-            sh_scores = sinh_scores(g0)["mat"]
-            pa_scores = preferential_attachment_scores(g0)["mat"]
+            ka_scores = katz_scores(g0)
+            sh_scores = sinh_scores(g0)
+            pa_scores = preferential_attachment_scores(g0)
             test_pos, test_neg, test_all = bipartite_data_edge(arr[n+1], nx.to_scipy_sparse_matrix(arr[n+1]))
             train = bipartite_data_edge(arr[n], nx.to_scipy_sparse_matrix(arr[n]))
             pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, test_all], ka_scores, pa_scores, sh_scores,a)
