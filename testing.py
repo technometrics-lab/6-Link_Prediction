@@ -154,8 +154,6 @@ plt.savefig(dir+"pw_mean.pdf",
             bbox_inches = 'tight')
 plt.close()
 
-
-
 for key in iw_dict.keys():
     sns.displot(iw_dict[key], kind="kde")
     plt.title("density of job openings number for " + key)
@@ -164,6 +162,7 @@ for key in iw_dict.keys():
                 dpi = 1000,
                 bbox_inches = 'tight')
     plt.close()
+
     sns.displot(pw_dict[key], kind="kde")
     plt.title("density of patents number for " + key)
     plt.savefig(dir+"patent/pw_hist" + key + ".pdf",
