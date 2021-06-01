@@ -82,7 +82,7 @@ def clean_reduce(g) -> None:
     n3=list(set([n for n in g.neighbors(top3[2])]))
     n1=random.choices(n1,k=10)
     n2=random.choices(n2,k=8)
-    n3=random.choices(n3,k=5)
+    n3=random.choices(n3,k=6)
     n1.extend(n2)
     n1.extend(n3)
     n1.extend(top3)
