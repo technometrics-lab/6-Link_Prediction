@@ -5,6 +5,7 @@ import numpy as np
 import json
 import time
 import glob
+import random
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import expm
 from networkx.readwrite import json_graph
@@ -108,10 +109,11 @@ def sinh_scores(g_train, nodelist0, alpha = 0.005):
 def preferential_attachment_scores(g_train,nodelist0):
     adj_train = nx.to_numpy_matrix(g_train,nodelist = nodelist0)
     # Calculate scores
+    mapping = nodelabel_to_index(nodelist0  )
     pa_matrix = np.zeros(adj_train.shape)
     for u, v, p in nx.preferential_attachment(g_train):# (u, v) = node indices, p = Jaccard coefficient
-        i=nodelabel_to_index(u,nodelist0)
-        j=nodelabel_to_index(v,nodelist0)
+        i = mapping[u]
+        j = mapping[v]
         pa_matrix[i][j] = p
         pa_matrix[j][i] = p
         # make sure it's symmetric
@@ -169,7 +171,7 @@ def bipartite_data_edge(G, adj, nodelist0):
     adj_triu = sp.triu(adj)
     edges_tuple = sparse_to_tuple(adj_triu)
     edges = edges_tuple[0]
-
+    mapping = nodelabel_to_index(nodelist0)
     edge_tuples = [(min(edge[0], edge[1]), max(edge[0], edge[1])) for edge in edges]
     set_edge = set(edge_tuples)
     #create negative edges list
@@ -178,8 +180,8 @@ def bipartite_data_edge(G, adj, nodelist0):
     all_pos_edge = []
     for x in [x for x, y in G.nodes(data=True) if y["bipartite"] == 0]:
         for y in [x for x, y in G.nodes(data=True) if y["bipartite"] == 1]:
-            i=nodelabel_to_index(x,nodelist0)
-            j=nodelabel_to_index(y,nodelist0)
+            i = mapping[x]
+            j = mapping[y]
             false = (min(i, j), max(j, i))
             all_pos_edge.append(false)
             if false in set_edge:
@@ -238,11 +240,11 @@ def calculate_time_score(arr, nodelist0):
     true_pa = np.array(pa_mat).reshape((len(arr)-1, pa_mat[0].shape[1]))
     true_sh = np.array(sh_mat).reshape((len(arr)-1, sh_mat[0].shape[1]))
 
-    adj=nx.to_numpy_matrix(g1)
+    adj=nx.to_numpy_matrix(g1, nodelist0)
     t=mat_to_arr(adj)
 
-    train = bipartite_data_edge(arr[-2], nx.to_numpy_matrix(arr[-2],nodelist=nodelist0))
-    test_pos, test_neg, all_edge = bipartite_data_edge(arr[-1], nx.to_numpy_matrix(arr[-1]),nodelist=nodelist0)
+    train = bipartite_data_edge(arr[-2], nx.to_numpy_matrix(arr[-2]),nodelist0)
+    test_pos, test_neg, all_edge = bipartite_data_edge(arr[-1], nx.to_numpy_matrix(arr[-1]),nodelist0)
     pred_ka = time_series_predict(true_ka,t).reshape(ka_scores.shape)
     pred_pa = time_series_predict(true_pa,t).reshape(pa_scores.shape)
     pred_sh = time_series_predict(true_sh,t).reshape(sh_scores.shape)
@@ -271,7 +273,8 @@ def time_series_predict(arr,should):
     predicted = []
     for n in tqdm(range(arr.shape[1])):
         if should[0,n] == 1:
-            predicted.append(ARIMA(arr[:, n].T, order=(1,0,0)).fit().forecast())
+            print(predicted[-1])
+            predicted.append(ARIMA(arr[:, n].T, order=(1,0,0)).fit().forecast()[0])
         else:
             predicted.append(0)
     return np.asarray(predicted)
@@ -290,7 +293,7 @@ def result_formater(res):
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.title("ROC Curve")
-    plt.savefig("res1.png")
+    plt.savefig("res1.pdf")
 
 def cross_val(arr, nodelist0):
     if len(arr)<3:
@@ -315,8 +318,8 @@ def opti_hyperparam(arr, nodelist0):
             ka_scores = katz_scores(g0, nodelist0)
             sh_scores = sinh_scores(g0, nodelist0)
             pa_scores = preferential_attachment_scores(g0,nodelist0)
-            test_pos, test_neg, test_all = bipartite_data_edge(arr[n+1], nx.to_numpy_matrix(arr[n+1]), nodelist=nodelist0)
-            train = bipartite_data_edge(arr[n], nx.to_numpy_matrix(arr[n]),nodelist=nodelist0)
+            test_pos, test_neg, test_all = bipartite_data_edge(arr[n+1], nx.to_numpy_matrix(arr[n+1]), nodelist0)
+            train = bipartite_data_edge(arr[n], nx.to_numpy_matrix(arr[n]),nodelist0)
             pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, test_all], ka_scores, pa_scores, sh_scores,a)
             res.append(roc_auc_score(labels_svm,pred_svm))
         if sum(res)/len(res)>best:
@@ -325,8 +328,11 @@ def opti_hyperparam(arr, nodelist0):
 
     return alphabest, best
 
-def nodelabel_to_index(label,nodelist0):
-    return nodelist0.index(label)
+def nodelabel_to_index(nodelist0):
+    mapping = {}
+    for label in nodelist0:
+        mapping[label] = nodelist0.index(label)
+    return mapping
 
 
 
@@ -337,7 +343,20 @@ for path in glob.glob(dir,recursive=True):
     with open(path, "r", encoding="utf-8") as file:
         data = json.load(file)
         g=json_graph.node_link_graph(data)
-        print(g.name)
-        arr.append(g)
+        if g.name=="201803":
+            set1=random.choices([x for x, y in g.nodes(data=True) if y["bipartite"] == 0], k=30)
+            set2 = random.choices([x for x, y in g.nodes(data=True) if y["bipartite"] == 1], k=10)
+            set1.extend(set2)
+            sett=set1
+        print(len(sett))
+        g1=g.subgraph(sett)
+        if nx.number_of_edges(g1)==0:
+            continue
+
+        print(g1.name)
+        arr.append(g1)
+
 nodelist0=list(arr[0])
-a=opti_hyperparam(arr[0:4], nodelist0)
+print(nx.info(arr[0]))
+a=calculate_time_score(arr[0:3], nodelist0)
+print(a["sh"][0])
