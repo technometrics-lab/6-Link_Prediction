@@ -1,6 +1,7 @@
 import json
 import os
 import glob
+import numpy as np
 from statistics import mean
 import networkx as nx
 from tqdm  import tqdm
@@ -32,11 +33,22 @@ iw_mean = []
 pw_mean = []
 iw_dict = {}
 pw_dict = {}
+new_edge = []
+del_edge = []
+same_edge = []
+g_old = 0
 for path in glob.glob(dir,recursive=True):
     with open(path, "r", encoding="utf-8") as file:
         #read each graph
         data = json.load(file)
         g=json_graph.node_link_graph(data)
+        adj1 = nx.to_numpy_matrix(g)
+        #inspect new edge/ edge deletion and edge keeping
+        if not g_old == 0:
+            adj2 = nx.to_numpy_matrix(g_old, list(g))
+            new_edge.append(np.count_nonzero((adj1-adj2)==-1))
+            same_edge.append(np.count_nonzero(np.logical_and((adj1==1),(adj2==0))))
+            del_edge.append(np.count_nonzero((adj1-adj2)==1))
         #get number of edges for each tim
         arrdeg.append(g.size())
         #get size of largest connected component
@@ -70,6 +82,8 @@ for path in glob.glob(dir,recursive=True):
 
         iw_dict[g.name] = list(iw.values())
         pw_dict[g.name] = list(pw.values())
+
+        g_old=g
 
 dir="figures/"
 plt.plot(arrdeg)
@@ -170,3 +184,33 @@ for key in iw_dict.keys():
                 dpi = 1000,
                 bbox_inches = 'tight')
     plt.close()
+
+plt.plot(new_edge)
+plt.ylabel("number of edges")
+plt.title("number of new edges created by month")
+
+plt.savefig(dir+"new_edge.pdf",
+            format = 'pdf',
+            dpi = 1000,
+            bbox_inches = 'tight')
+plt.close()
+
+plt.plot(del_edge)
+plt.ylabel("number of edges")
+plt.title("number of edges dissapearing by month")
+
+plt.savefig(dir+"del_edge.pdf",
+            format = 'pdf',
+            dpi = 1000,
+            bbox_inches = 'tight')
+plt.close()
+
+plt.plot(same_edge)
+plt.ylabel("number of edges")
+plt.title("number of edges that survived by month")
+
+plt.savefig(dir+"same_edge.pdf",
+            format = 'pdf',
+            dpi = 1000,
+            bbox_inches = 'tight')
+plt.close()

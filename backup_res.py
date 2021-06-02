@@ -247,7 +247,10 @@ def time_series_predict(arr,should):
     predicted = []
     for n in tqdm(range(arr.shape[1])):
         if should[0,n] == 1:
-            predicted.append(ARIMA(arr[:, n].T, order=(1,0,0)).fit().forecast())
+            lr=LinearRegression().fit(np.asarray(range(len(arr[:,n]))).reshape(-1,1), arr[:,n])
+            val = lr.predict(np.asarray(len(arr[:,n])).reshape(1,-1))
+            # predicted.append(ARIMA(arr[:, n].T, order=(1,0,0)).fit().forecast()[0])
+            predicted.append(val[0])
         else:
             predicted.append(0)
     return np.asarray(predicted)
@@ -280,7 +283,8 @@ def result_formater(res):
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.title("ROC Curve")
-    plt.show()
+    plt.savefig("figures/reslinear.pdf")
+    plt.close()
 
 
 

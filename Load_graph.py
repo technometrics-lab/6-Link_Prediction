@@ -7,7 +7,7 @@ from tqdm  import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 from networkx.readwrite import json_graph
-from link_prediction_setup import *
+import numpy as np
 
 
 def get_key(dict, search_item):
@@ -27,8 +27,13 @@ for path in glob.glob(dir,recursive=True):
     with open(path, "r", encoding="utf-8") as file:
         data = json.load(file)
         g=json_graph.node_link_graph(data)
+        set1=[x for x, y in g.nodes(data=True) if y["bipartite"] == 0]
+        set2=[x for x, y in g.nodes(data=True) if y["bipartite"] == 1]
+        rep.append(g)
 
-
+adj1=nx.to_numpy_matrix(rep[0])
+adj2=nx.to_numpy_matrix(rep[1], list(rep[0]))
+print(np.count_nonzero(np.logical_and((adj1==1),(adj2==0))))
         # dir1="final_graph/"
         # dataset="graph"+g.name
         # res = json_graph.node_link_data(g)

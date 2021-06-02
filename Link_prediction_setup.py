@@ -6,6 +6,7 @@ import json
 import time
 import glob
 import random
+from sklearn.linear_model import LinearRegression
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import expm
 from networkx.readwrite import json_graph
@@ -62,9 +63,9 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
         return roc_score, ap_score, roc_curve_tuple
     except:
         #handles the exception
-        preds_neg1=[x[0] for x in preds_neg]
+        preds_neg1 = [x[0] for x in preds_neg]
         #sometimes it switches the neg and pos so if it happens it switch back
-        if sum(preds_pos)==0:
+        if sum(preds_pos) == 0:
             preds_all = np.hstack([preds_neg1, preds_pos])
             labels_all = np.hstack([np.ones(len(preds_neg1)), np.zeros(len(preds_pos))])
         else:
@@ -84,10 +85,10 @@ def gmeans(roc_curve,root = False):
 
     if root:
         #gmeans method found in literature
-        g = np.sqrt(roc_curve[0] * (1-roc_curve[1]))
+        g = np.sqrt(roc_curve[0] * (1 - roc_curve[1]))
     else:
         #basic method
-        g = roc_curve[1]-roc_curve[0]
+        g = roc_curve[1] - roc_curve[0]
 
     #find index of optimal threshold, then the threshold
     ind = np.argmax(g)
@@ -98,18 +99,18 @@ def gmeans(roc_curve,root = False):
 #Output: Matrix of scores
 def sinh_scores(g_train, nodelist0, alpha = 0.005):
     #compute adjacency matrix
-    adj_train = nx.to_numpy_matrix(g_train,nodelist=nodelist0)
-    sinh_mat = (expm(alpha*adj_train)-expm(-alpha*adj_train))/2
+    adj_train = nx.to_numpy_matrix(g_train, nodelist=nodelist0)
+    sinh_mat = (expm(alpha * adj_train) - expm(-alpha * adj_train))/2
     sinh_mat = sinh_mat/sinh_mat.max()
     sinh_mat = sinh_mat
     return sinh_mat
 
 # Input: NetworkX training graph
 # Output: Score matrix
-def preferential_attachment_scores(g_train,nodelist0):
-    adj_train = nx.to_numpy_matrix(g_train,nodelist = nodelist0)
+def preferential_attachment_scores(g_train, nodelist0):
+    adj_train = nx.to_numpy_matrix(g_train, nodelist = nodelist0)
     # Calculate scores
-    mapping = nodelabel_to_index(nodelist0  )
+    mapping = nodelabel_to_index(nodelist0)
     pa_matrix = np.zeros(adj_train.shape)
     for u, v, p in nx.preferential_attachment(g_train):# (u, v) = node indices, p = Jaccard coefficient
         i = mapping[u]
@@ -117,7 +118,8 @@ def preferential_attachment_scores(g_train,nodelist0):
         pa_matrix[i][j] = p
         pa_matrix[j][i] = p
         # make sure it's symmetric
-    pa_matrix = pa_matrix / pa_matrix.max() # Normalize matrix
+    if not pa_matrix.max() == 0:
+        pa_matrix = pa_matrix / pa_matrix.max() # Normalize matrix
 
     return pa_matrix
 
@@ -125,22 +127,21 @@ def preferential_attachment_scores(g_train,nodelist0):
 #Output: Matrix scores
 def katz_scores(g_train, nodelist0, max_power = 5, beta =  0.045):
     adj_train = nx.to_numpy_matrix(g_train, nodelist=nodelist0)
-    ka_scores = {}
-    ka_score_matrix = (np.linalg.inv(identity(adj_train.shape[1])-beta*adj_train)-identity(adj_train.shape[1]))
+    ka_score_matrix = (np.linalg.inv(identity(adj_train.shape[1]) - beta * adj_train) - identity(adj_train.shape[1]))
     return ka_score_matrix
 
 #Input:edge list to train on,edge list to test on, scores matrix of other metrics
 #Output: mmmmh not sure yet
-def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, c = 0.9):
+def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, pw, iw, c = 0.9):
 
     train_pos, train_neg, train_all = test_split1
     test_pos, test_neg, test_all = test_split2
 
     #create feature vectore for train and test
-    att_train_pos = create_attributes(train_pos, ka_scores, pa_scores, sh_scores)
-    att_train_neg = create_attributes(train_neg, ka_scores, pa_scores, sh_scores)
-    att_test_pos = create_attributes(test_pos, ka_scores, pa_scores, sh_scores)
-    att_test_neg = create_attributes(test_neg, ka_scores, pa_scores, sh_scores)
+    att_train_pos = create_attributes(train_pos, ka_scores[0], pa_scores[0], sh_scores[0], pw, iw)
+    att_train_neg = create_attributes(train_neg, ka_scores[0], pa_scores[0], sh_scores[0], pw, iw)
+    att_test_pos = create_attributes(test_pos, ka_scores[1], pa_scores[1], sh_scores[1], pw, iw)
+    att_test_neg = create_attributes(test_neg, ka_scores[1], pa_scores[1], sh_scores[1], pw, iw)
 
     #Train SVM
     preds_all = np.vstack([att_train_pos, att_train_neg])
@@ -166,7 +167,8 @@ def sparse_to_tuple(sparse_mx):
 #Input:Networkx graph with partition attribute otherwise it wont work,adjacency matrix of the graph
 #Output:Present edge list, non present edge list, all possible edge list
 def bipartite_data_edge(G, adj, nodelist0):
-    adj=coo_matrix(adj)
+
+    adj = coo_matrix(adj)
     #get upper triangular of adj since it contains all possible edges(even more than all possibles in bipartite)
     adj_triu = sp.triu(adj)
     edges_tuple = sparse_to_tuple(adj_triu)
@@ -191,18 +193,21 @@ def bipartite_data_edge(G, adj, nodelist0):
 
     edge_neg = np.array([list(edge_tuple) for edge_tuple in false_edge])
 
+
+
     return np.array(edge_tuples), edge_neg, all_pos_edge
 
 #Input:edge list to create feature vector for, scores matrices
 #Output: feature flat array for SVM
-def create_attributes(edge_list, ka_scores, pa_scores, sh_scores):
-    attr = np.zeros((edge_list.shape[0], 3))
+def create_attributes(edge_list, ka_scores, pa_scores, sh_scores, pw, iw):
+    attr = np.zeros((edge_list.shape[0], 5))
     n = 0
     for edge in edge_list:
-
         attr[n][0] = ka_scores[edge[0], edge[1]]
         attr[n][2] = sh_scores[edge[0], edge[1]]
         attr[n][1] = pa_scores[edge[0], edge[1]]
+        attr[n][3] = pw[edge[0], edge[1]]
+        attr[n][4] = iw[edge[0], edge[1]]
         n = n + 1
 
     return attr
@@ -210,53 +215,64 @@ def create_attributes(edge_list, ka_scores, pa_scores, sh_scores):
 #Input: array of graphs
 #output:dict of performance results
 def calculate_time_score(arr, nodelist0):
-    ka_mat = []
-    pa_mat = []
-    sh_mat = []
-    uns_res = {}
-    g1=nx.Graph(arr[0])
-    for u in [n for n in list(g) if g.nodes[n]["bipartite"]==0]:
-        for v in [n for n in list(g) if g.nodes[n]["bipartite"]==1]:
-            g1.add_edge(u,v)
-    for n in range(len(arr)-1):
-        print(n)
-        g0 = arr[n]
-        time1 = time.time()
-        pa_scores = preferential_attachment_scores(g0,nodelist0)
-        print("PA time: ", time.time() - time1)
-        time1=time.time()
-        ka_scores = katz_scores(g0, nodelist0)
-        print("KA time: ", time.time() - time1)
-        time1=time.time()
-        sh_scores = sinh_scores(g0, nodelist0)
-        print("sh time: ", time.time() - time1)
+    if len(arr)==2:
+        uns_res = {}
+        pa_scores = preferential_attachment_scores(arr[0], nodelist0)
+        ka_scores = katz_scores(arr[0], nodelist0)
+        sh_scores = sinh_scores(arr[0], nodelist0)
+        test_pos, test_neg, all_edge = bipartite_data_edge(arr[-1], nx.to_numpy_matrix(arr[-1], nodelist0), nodelist0)
+        uns_res["ka"] = get_roc_score(test_pos, test_neg, ka_scores)
+        uns_res["pa"] = get_roc_score(test_pos,test_neg, pa_scores)
+        uns_res["sh"] = get_roc_score(test_pos,test_neg, sh_scores)
+        return uns_res
+    else:
+        ka_mat = []
+        pa_mat = []
+        sh_mat = []
+        uns_res = {}
+        g1=nx.Graph(arr[0])
+        for u in [n for n in list(g) if g.nodes[n]["bipartite"]==0]:
+            for v in [n for n in list(g) if g.nodes[n]["bipartite"]==1]:
+                g1.add_edge(u, v)
 
-        ka_mat.append(mat_to_arr(ka_scores))
-        pa_mat.append(mat_to_arr(pa_scores))
-        sh_mat.append(mat_to_arr(sh_scores))
+        for n in range(len(arr)-1):
+            g0 = arr[n]
+            time1 = time.time()
+            pa_scores = preferential_attachment_scores(g0,nodelist0)
+            print("PA time: ", time.time() - time1)
+            time1=time.time()
+            ka_scores = katz_scores(g0, nodelist0)
+            print("KA time: ", time.time() - time1)
+            time1=time.time()
+            sh_scores = sinh_scores(g0, nodelist0)
+            print("sh time: ", time.time() - time1)
+
+            ka_mat.append(mat_to_arr(ka_scores))
+            pa_mat.append(mat_to_arr(pa_scores))
+            sh_mat.append(mat_to_arr(sh_scores))
 
 
-    true_ka = np.array(ka_mat).reshape((len(arr)-1, ka_mat[0].shape[1]))
-    true_pa = np.array(pa_mat).reshape((len(arr)-1, pa_mat[0].shape[1]))
-    true_sh = np.array(sh_mat).reshape((len(arr)-1, sh_mat[0].shape[1]))
+        true_ka = np.array(ka_mat).reshape((len(arr)-1, ka_mat[0].shape[1]))
+        true_pa = np.array(pa_mat).reshape((len(arr)-1, pa_mat[0].shape[1]))
+        true_sh = np.array(sh_mat).reshape((len(arr)-1, sh_mat[0].shape[1]))
+        adj = nx.to_numpy_matrix(g1, nodelist0)
+        t = mat_to_arr(adj)
 
-    adj=nx.to_numpy_matrix(g1, nodelist0)
-    t=mat_to_arr(adj)
+        train = bipartite_data_edge(arr[-2], nx.to_numpy_matrix(arr[-2], nodelist0), nodelist0)
+        test_pos, test_neg, all_edge = bipartite_data_edge(arr[-1], nx.to_numpy_matrix(arr[-1], nodelist0), nodelist0)
+        pred_ka = time_series_predict(true_ka, t).reshape(ka_scores.shape)
+        pred_pa = time_series_predict(true_pa, t).reshape(pa_scores.shape)
+        pred_sh = time_series_predict(true_sh, t).reshape(sh_scores.shape)
 
-    train = bipartite_data_edge(arr[-2], nx.to_numpy_matrix(arr[-2]),nodelist0)
-    test_pos, test_neg, all_edge = bipartite_data_edge(arr[-1], nx.to_numpy_matrix(arr[-1]),nodelist0)
-    pred_ka = time_series_predict(true_ka,t).reshape(ka_scores.shape)
-    pred_pa = time_series_predict(true_pa,t).reshape(pa_scores.shape)
-    pred_sh = time_series_predict(true_sh,t).reshape(sh_scores.shape)
+        pw, iw = extract_edge_attribute(arr[-2], nx.to_numpy_matrix(arr[-2], nodelist=nodelist0), nodelist0)
+        pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, all_edge], [ka_scores, pred_ka] , [pa_scores, pred_pa], [sh_scores, pred_sh], pw, iw)
 
-    pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, all_edge], pred_ka, pred_pa, pred_sh)
+        uns_res["ka"] = get_roc_score(test_pos, test_neg, pred_ka)
+        uns_res["pa"] = get_roc_score(test_pos,test_neg, pred_pa)
+        uns_res["sh"] = get_roc_score(test_pos,test_neg, pred_sh)
+        uns_res["svm"] = roc_auc_score(labels_svm,pred_svm), average_precision_score(labels_svm,pred_svm), roc_curve(labels_svm,pred_svm)
 
-    uns_res["ka"] = get_roc_score(test_pos, test_neg, pred_ka)
-    uns_res["pa"] = get_roc_score(test_pos,test_neg, pred_pa)
-    uns_res["sh"] = get_roc_score(test_pos,test_neg, pred_sh)
-    uns_res["svm"] = roc_auc_score(labels_svm,pred_svm), average_precision_score(labels_svm,pred_svm), roc_curve(labels_svm,pred_svm)
-
-    return uns_res
+        return uns_res
 
 
 #Input: scores matrix
@@ -273,8 +289,10 @@ def time_series_predict(arr,should):
     predicted = []
     for n in tqdm(range(arr.shape[1])):
         if should[0,n] == 1:
-            print(predicted[-1])
-            predicted.append(ARIMA(arr[:, n].T, order=(1,0,0)).fit().forecast()[0])
+            lr = LinearRegression().fit(np.asarray(range(len(arr[:,n]))).reshape(-1,1), arr[:,n])
+            val = lr.predict(np.asarray(len(arr[:,n])).reshape(1,-1))
+            # predicted.append(ARIMA(arr[:, n].T, order=(0,0,1)).fit().forecast()[0])
+            predicted.append(val[0])
         else:
             predicted.append(0)
     return np.asarray(predicted)
@@ -287,40 +305,49 @@ def result_formater(res):
            "sh":"Hyperbolic Sine Index AUC = ","svm":"SVM AUC = "}
     for key in res.keys():
         test_fpr, test_tpr, threshold = res[key][2]
-        plt.plot(test_fpr, test_tpr, label = label[key] + str(round(res[key][0],3)))
+        plt.plot(test_fpr, test_tpr, label = label[key] + str(round(res[key][0], 3)))
 
     plt.legend(loc = "lower right")
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.title("ROC Curve")
     plt.savefig("res1.pdf")
+    plt.close()
 
 def cross_val(arr, nodelist0):
-    if len(arr)<3:
+    if len(arr) < 3:
         raise ValueError("wesh")
-    key=["ka","pa","sh","svm"]
-    mean_res={}
+    key=["ka", "pa", "sh", "svm"]
+    res1 = {}
+    std = {}
+    mean_res = {}
     for k in key:
-        mean_res[k]=0
-    for n in range(3,len(arr)+1):
-        res=calculate_time_score(arr[0:n], nodelist0)
+        mean_res[k] = 0
+        res1[k] = []
+    for n in range(3, len(arr)+1):
+        res = calculate_time_score(arr[0:n], nodelist0)
         for k in key:
+            res1[k].append(res[k][0])
             mean_res[k] += res[k][0]/(len(arr)-2)
-    return mean_res
+    for k in key:
+        std[k] = np.std(res1[k])
+    return mean_res, std
 
+#pas opti en ce moment meme
 def opti_hyperparam(arr, nodelist0):
     res = []
-    best=0
-    alphabest=0
-    for a in tqdm(np.arange(0.1,1,0.1)):
+    best = 0
+    alphabest = 0
+    for a in tqdm(np.arange(0.1, 1, 0.1)):
         for n in range(len(arr)-1):
             g0 = arr[n]
             ka_scores = katz_scores(g0, nodelist0)
             sh_scores = sinh_scores(g0, nodelist0)
-            pa_scores = preferential_attachment_scores(g0,nodelist0)
-            test_pos, test_neg, test_all = bipartite_data_edge(arr[n+1], nx.to_numpy_matrix(arr[n+1]), nodelist0)
-            train = bipartite_data_edge(arr[n], nx.to_numpy_matrix(arr[n]),nodelist0)
-            pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, test_all], ka_scores, pa_scores, sh_scores,a)
+            pa_scores = preferential_attachment_scores(g0, nodelist0)
+            test_pos, test_neg, test_all = bipartite_data_edge(arr[n+1], nx.to_numpy_matrix(arr[n+1], nodelist=nodelist0), nodelist0)
+            train = bipartite_data_edge(arr[n], nx.to_numpy_matrix(arr[n], nodelist=nodelist0), nodelist0)
+            pw, iw = extract_edge_attribute(g0, nx.to_numpy_matrix(g0, nodelist0), nodelist0)
+            pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, test_all], ka_scores, pa_scores, sh_scores, pw, iw)
             res.append(roc_auc_score(labels_svm,pred_svm))
         if sum(res)/len(res)>best:
             best = sum(res)/len(res)
@@ -334,29 +361,48 @@ def nodelabel_to_index(nodelist0):
         mapping[label] = nodelist0.index(label)
     return mapping
 
+def extract_edge_attribute(G, adj, nodelist0):
 
+    pw=np.zeros(adj.shape)
+    iw=np.zeros(adj.shape)
+    d_pw = nx.get_edge_attributes(G, "pw")
+    d_iw = nx.get_edge_attributes(G, "iw")
+    mapping = nodelabel_to_index(nodelist0)
 
+    for keys, item in d_pw.items():
+        x=mapping[keys[0]]
+        y=mapping[keys[1]]
+        pw[x,y]=item
+        pw[y,x]=item
+    for keys, item in d_iw.items():
+        x=mapping[keys[0]]
+        y=mapping[keys[1]]
+        iw[x,y]=item
+        iw[y,x]=item
 
+    return pw, iw
 dir = "final_graph/graph*"
 arr=[]
 for path in glob.glob(dir,recursive=True):
     with open(path, "r", encoding="utf-8") as file:
         data = json.load(file)
         g=json_graph.node_link_graph(data)
-        if g.name=="201803":
-            set1=random.choices([x for x, y in g.nodes(data=True) if y["bipartite"] == 0], k=30)
-            set2 = random.choices([x for x, y in g.nodes(data=True) if y["bipartite"] == 1], k=10)
-            set1.extend(set2)
-            sett=set1
-        print(len(sett))
-        g1=g.subgraph(sett)
-        if nx.number_of_edges(g1)==0:
-            continue
-
-        print(g1.name)
-        arr.append(g1)
+        # if g.name=="201803":
+        #     set1=random.choices([x for x, y in g.nodes(data=True) if y["bipartite"] == 0], k=30)
+        #     set2 = random.choices([x for x, y in g.nodes(data=True) if y["bipartite"] == 1], k=10)
+        #     set1.extend(set2)
+        #     sett=set1
+        # g1=g.subgraph(sett)
+        # if nx.number_of_edges(g1)==0:
+        #     continue
+        arr.append(g)
 
 nodelist0=list(arr[0])
-print(nx.info(arr[0]))
-a=calculate_time_score(arr[0:3], nodelist0)
-print(a["sh"][0])
+a=calculate_time_score(arr, nodelist0)
+print(a["ka"][0], a["pa"][0], a["sh"][0], a["svm"][0])
+b=calculate_time_score([arr[-2], arr[-1]], nodelist0)
+print(a["ka"][0], a["pa"][0], a["sh"][0])
+# for n in range(len(arr)-1):
+#     print(arr[n].name)
+#     a=calculate_time_score(arr[n:n+2], nodelist0)
+#     print(a["ka"][1], a["pa"][1], a["sh"][1])
