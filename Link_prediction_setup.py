@@ -97,22 +97,24 @@ def gmeans(roc_curve,root = False):
 
 #Input:Netowrkx training graph, damping factor alpha
 #Output: Matrix of scores
-def sinh_scores(g_train, nodelist0, alpha = 0.005):
+def sinh_scores(g_train, nodelist0, alpha = 0.01):
     #compute adjacency matrix
     adj_train = nx.to_numpy_matrix(g_train, nodelist=nodelist0)
     sinh_mat = (expm(alpha * adj_train) - expm(-alpha * adj_train))/2
     sinh_mat = sinh_mat/sinh_mat.max()
-    sinh_mat = sinh_mat
     return sinh_mat
 
 # Input: NetworkX training graph
 # Output: Score matrix
 def preferential_attachment_scores(g_train, nodelist0):
     adj_train = nx.to_numpy_matrix(g_train, nodelist = nodelist0)
-    # Calculate scores
+    #map of node label to integer index
+    pos, neg, all = bipartite_data_edge(g_train, adj_train, nodelist0)
     mapping = nodelabel_to_index(nodelist0)
+    ebunch1 = get_ebunch(all, nodelist0)
     pa_matrix = np.zeros(adj_train.shape)
-    for u, v, p in nx.preferential_attachment(g_train):# (u, v) = node indices, p = Jaccard coefficient
+    #compute scores for each edge
+    for u, v, p in nx.preferential_attachment(g_train, ebunch1):# (u, v) = node indices, p = Jaccard coefficient
         i = mapping[u]
         j = mapping[v]
         pa_matrix[i][j] = p
@@ -125,9 +127,9 @@ def preferential_attachment_scores(g_train, nodelist0):
 
 #Input:Networkx training graph,max_power
 #Output: Matrix scores
-def katz_scores(g_train, nodelist0, max_power = 5, beta =  0.045):
+def katz_scores(g_train, nodelist0, beta =  0.006):
     adj_train = nx.to_numpy_matrix(g_train, nodelist=nodelist0)
-    ka_score_matrix = (np.linalg.inv(identity(adj_train.shape[1]) - beta * adj_train) - identity(adj_train.shape[1]))
+    ka_score_matrix = np.linalg.inv(identity(adj_train.shape[1]) - beta * adj_train) - identity(adj_train.shape[1])
     return ka_score_matrix
 
 #Input:edge list to train on,edge list to test on, scores matrix of other metrics
@@ -209,13 +211,12 @@ def create_attributes(edge_list, ka_scores, pa_scores, sh_scores, pw, iw):
         attr[n][3] = pw[edge[0], edge[1]]
         attr[n][4] = iw[edge[0], edge[1]]
         n = n + 1
-
     return attr
 
 #Input: array of graphs
 #output:dict of performance results
-def calculate_time_score(arr, nodelist0):
-    if len(arr)==2:
+def calculate_time_score(arr, nodelist0, c):
+    if len(arr) == 2:
         uns_res = {}
         pa_scores = preferential_attachment_scores(arr[0], nodelist0)
         ka_scores = katz_scores(arr[0], nodelist0)
@@ -230,27 +231,21 @@ def calculate_time_score(arr, nodelist0):
         pa_mat = []
         sh_mat = []
         uns_res = {}
-        g1=nx.Graph(arr[0])
-        for u in [n for n in list(g) if g.nodes[n]["bipartite"]==0]:
-            for v in [n for n in list(g) if g.nodes[n]["bipartite"]==1]:
+        g1 = nx.Graph(arr[0])
+        for u in [n for n in list(g) if g.nodes[n]["bipartite"] == 0]:
+            for v in [n for n in list(g) if g.nodes[n]["bipartite"] == 1]:
                 g1.add_edge(u, v)
 
-        for n in range(len(arr)-1):
+        for n in range(len(arr) - 1):
             g0 = arr[n]
-            time1 = time.time()
-            pa_scores = preferential_attachment_scores(g0,nodelist0)
-            print("PA time: ", time.time() - time1)
-            time1=time.time()
+
+            pa_scores = preferential_attachment_scores(g0, nodelist0)
             ka_scores = katz_scores(g0, nodelist0)
-            print("KA time: ", time.time() - time1)
-            time1=time.time()
             sh_scores = sinh_scores(g0, nodelist0)
-            print("sh time: ", time.time() - time1)
 
             ka_mat.append(mat_to_arr(ka_scores))
             pa_mat.append(mat_to_arr(pa_scores))
             sh_mat.append(mat_to_arr(sh_scores))
-
 
         true_ka = np.array(ka_mat).reshape((len(arr)-1, ka_mat[0].shape[1]))
         true_pa = np.array(pa_mat).reshape((len(arr)-1, pa_mat[0].shape[1]))
@@ -265,12 +260,12 @@ def calculate_time_score(arr, nodelist0):
         pred_sh = time_series_predict(true_sh, t).reshape(sh_scores.shape)
 
         pw, iw = extract_edge_attribute(arr[-2], nx.to_numpy_matrix(arr[-2], nodelist=nodelist0), nodelist0)
-        pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, all_edge], [ka_scores, pred_ka] , [pa_scores, pred_pa], [sh_scores, pred_sh], pw, iw)
+        pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, all_edge], [ka_scores, pred_ka] , [pa_scores, pred_pa], [sh_scores, pred_sh], pw, iw, c)
 
         uns_res["ka"] = get_roc_score(test_pos, test_neg, pred_ka)
         uns_res["pa"] = get_roc_score(test_pos,test_neg, pred_pa)
         uns_res["sh"] = get_roc_score(test_pos,test_neg, pred_sh)
-        uns_res["svm"] = roc_auc_score(labels_svm,pred_svm), average_precision_score(labels_svm,pred_svm), roc_curve(labels_svm,pred_svm)
+        uns_res["svm"] = roc_auc_score(labels_svm, pred_svm), average_precision_score(labels_svm, pred_svm), roc_curve(labels_svm, pred_svm)
 
         return uns_res
 
@@ -289,8 +284,8 @@ def time_series_predict(arr,should):
     predicted = []
     for n in tqdm(range(arr.shape[1])):
         if should[0,n] == 1:
-            lr = LinearRegression().fit(np.asarray(range(len(arr[:,n]))).reshape(-1,1), arr[:,n])
-            val = lr.predict(np.asarray(len(arr[:,n])).reshape(1,-1))
+            lr = LinearRegression().fit(np.asarray(range(len(arr[:, n]))).reshape(-1, 1), arr[:, n])
+            val = lr.predict(np.asarray(len(arr[:,n])).reshape(1, -1))
             # predicted.append(ARIMA(arr[:, n].T, order=(0,0,1)).fit().forecast()[0])
             predicted.append(val[0])
         else:
@@ -301,8 +296,8 @@ def time_series_predict(arr,should):
 def result_formater(res):
     plt.figure()
     plt.plot([0,1],[0,1],"g--")
-    label={"ka":"Katz Index AUC = ","pa":"Preferential Attachment Index AUC = ",
-           "sh":"Hyperbolic Sine Index AUC = ","svm":"SVM AUC = "}
+    label={"ka":"Katz Index AUC = ", "pa":"Preferential Attachment Index AUC = ",
+           "sh":"Hyperbolic Sine Index AUC = ", "svm":"SVM AUC = "}
     for key in res.keys():
         test_fpr, test_tpr, threshold = res[key][2]
         plt.plot(test_fpr, test_tpr, label = label[key] + str(round(res[key][0], 3)))
@@ -311,7 +306,10 @@ def result_formater(res):
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.title("ROC Curve")
-    plt.savefig("res1.pdf")
+    plt.savefig("res1.pdf",
+                format = "pdf",
+                dpi = 1000,
+                bbox_inches = "tight")
     plt.close()
 
 def cross_val(arr, nodelist0):
@@ -324,35 +322,33 @@ def cross_val(arr, nodelist0):
     for k in key:
         mean_res[k] = 0
         res1[k] = []
-    for n in range(3, len(arr)+1):
+    for n in range(3, len(arr) + 1):
         res = calculate_time_score(arr[0:n], nodelist0)
         for k in key:
             res1[k].append(res[k][0])
-            mean_res[k] += res[k][0]/(len(arr)-2)
+            mean_res[k] += res[k][0]/(len(arr) - 2)
     for k in key:
         std[k] = np.std(res1[k])
     return mean_res, std
 
-#pas opti en ce moment meme
+####flemme de faire que sa s'adapte####
 def opti_hyperparam(arr, nodelist0):
     res = []
     best = 0
     alphabest = 0
-    for a in tqdm(np.arange(0.1, 1, 0.1)):
-        for n in range(len(arr)-1):
-            g0 = arr[n]
-            ka_scores = katz_scores(g0, nodelist0)
-            sh_scores = sinh_scores(g0, nodelist0)
-            pa_scores = preferential_attachment_scores(g0, nodelist0)
-            test_pos, test_neg, test_all = bipartite_data_edge(arr[n+1], nx.to_numpy_matrix(arr[n+1], nodelist=nodelist0), nodelist0)
-            train = bipartite_data_edge(arr[n], nx.to_numpy_matrix(arr[n], nodelist=nodelist0), nodelist0)
-            pw, iw = extract_edge_attribute(g0, nx.to_numpy_matrix(g0, nodelist0), nodelist0)
-            pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, test_all], ka_scores, pa_scores, sh_scores, pw, iw)
-            res.append(roc_auc_score(labels_svm,pred_svm))
-        if sum(res)/len(res)>best:
-            best = sum(res)/len(res)
+    g1 = nx.Graph(arr[0])
+    for u in [n for n in list(g) if g.nodes[n]["bipartite"] == 0]:
+        for v in [n for n in list(g) if g.nodes[n]["bipartite"] == 1]:
+            g1.add_edge(u, v)
+    adj = nx.to_numpy_matrix(g1, nodelist0)
+    t = mat_to_arr(adj)
+    for a in np.arange(0.1, 1, 0.1):
+        print(a)
+        res = calculate_time_score(arr, nodelist0, a)["svm"][0]
+        print(res," ",a)
+        if res>best:
+            best = res
             alphabest=a
-
     return alphabest, best
 
 def nodelabel_to_index(nodelist0):
@@ -363,46 +359,45 @@ def nodelabel_to_index(nodelist0):
 
 def extract_edge_attribute(G, adj, nodelist0):
 
-    pw=np.zeros(adj.shape)
-    iw=np.zeros(adj.shape)
+    pw = np.zeros(adj.shape)
+    iw = np.zeros(adj.shape)
     d_pw = nx.get_edge_attributes(G, "pw")
     d_iw = nx.get_edge_attributes(G, "iw")
     mapping = nodelabel_to_index(nodelist0)
 
     for keys, item in d_pw.items():
-        x=mapping[keys[0]]
-        y=mapping[keys[1]]
-        pw[x,y]=item
-        pw[y,x]=item
+        x = mapping[keys[0]]
+        y = mapping[keys[1]]
+        pw[x, y] = item
+        pw[y, x] = item
     for keys, item in d_iw.items():
-        x=mapping[keys[0]]
-        y=mapping[keys[1]]
-        iw[x,y]=item
-        iw[y,x]=item
+        x = mapping[keys[0]]
+        y = mapping[keys[1]]
+        iw[x, y] = item
+        iw[y, x] = item
 
     return pw, iw
+
+def get_ebunch(edge_list, nodelist0):
+    label_list = []
+    for e in edge_list:
+        label_list.append((nodelist0[e[0]],nodelist0[e[1]]))
+    return label_list
+
+def printer(res):
+    keys = ["ka", "pa", "sh", "svm"]
+    for key in keys:
+        print(key," AUC: ",res[key][0])
+        print(key," APR: ",res[key][1])
+
 dir = "final_graph/graph*"
 arr=[]
 for path in glob.glob(dir,recursive=True):
     with open(path, "r", encoding="utf-8") as file:
         data = json.load(file)
         g=json_graph.node_link_graph(data)
-        # if g.name=="201803":
-        #     set1=random.choices([x for x, y in g.nodes(data=True) if y["bipartite"] == 0], k=30)
-        #     set2 = random.choices([x for x, y in g.nodes(data=True) if y["bipartite"] == 1], k=10)
-        #     set1.extend(set2)
-        #     sett=set1
-        # g1=g.subgraph(sett)
-        # if nx.number_of_edges(g1)==0:
-        #     continue
         arr.append(g)
 
 nodelist0=list(arr[0])
-a=calculate_time_score(arr, nodelist0)
-print(a["ka"][0], a["pa"][0], a["sh"][0], a["svm"][0])
-b=calculate_time_score([arr[-2], arr[-1]], nodelist0)
-print(a["ka"][0], a["pa"][0], a["sh"][0])
-# for n in range(len(arr)-1):
-#     print(arr[n].name)
-#     a=calculate_time_score(arr[n:n+2], nodelist0)
-#     print(a["ka"][1], a["pa"][1], a["sh"][1])
+a, best = opti_hyperparam(arr, nodelist0)
+print(a, " ", best)

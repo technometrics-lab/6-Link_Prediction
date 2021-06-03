@@ -32,8 +32,8 @@ for path in glob.glob(dir,recursive=True):
         rep.append(g)
 
 adj1=nx.to_numpy_matrix(rep[0])
-adj2=nx.to_numpy_matrix(rep[1], list(rep[0]))
-print(np.count_nonzero(np.logical_and((adj1==1),(adj2==0))))
+adj2 = nx.to_scipy_sparse_matrix(rep[0])
+adj1+adj2
         # dir1="final_graph/"
         # dataset="graph"+g.name
         # res = json_graph.node_link_data(g)

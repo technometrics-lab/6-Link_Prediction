@@ -47,7 +47,7 @@ for path in glob.glob(dir,recursive=True):
         if not g_old == 0:
             adj2 = nx.to_numpy_matrix(g_old, list(g))
             new_edge.append(np.count_nonzero((adj1-adj2)==-1))
-            same_edge.append(np.count_nonzero(np.logical_and((adj1==1),(adj2==0))))
+            same_edge.append(np.count_nonzero(np.logical_and((adj1==1),(adj2==1))))
             del_edge.append(np.count_nonzero((adj1-adj2)==1))
         #get number of edges for each tim
         arrdeg.append(g.size())
