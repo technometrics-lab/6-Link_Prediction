@@ -52,30 +52,30 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
             preds_neg.append(score_matrix[edge[0], edge[1]])
     #sometimes it fails due to some numbers being arrays but i havent found The
     #issue
-    try:
-        # Calculate scores
-        preds_all = np.hstack([preds_pos, preds_neg])
-        labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg))])
 
-        roc_score = roc_auc_score(labels_all, preds_all)
-        roc_curve_tuple = roc_curve
-        ap_score = average_precision_score(labels_all, preds_all)
-        return roc_score, ap_score, roc_curve_tuple
-    except:
-        #handles the exception
-        preds_neg1 = [x[0] for x in preds_neg]
-        #sometimes it switches the neg and pos so if it happens it switch back
-        if sum(preds_pos) == 0:
-            preds_all = np.hstack([preds_neg1, preds_pos])
-            labels_all = np.hstack([np.ones(len(preds_neg1)), np.zeros(len(preds_pos))])
-        else:
-            preds_all = np.hstack([preds_pos, preds_neg1])
-            labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg1))])
+    # Calculate scores
+    preds_all = np.hstack([preds_pos, preds_neg])
+    labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg))])
 
-        roc_score = roc_auc_score(labels_all, preds_all)
-        roc_curve_tuple = roc_curve
-        ap_score = average_precision_score(labels_all, preds_all)
-        return roc_score, ap_score, roc_curve_tuple
+    roc_score = roc_auc_score(labels_all, preds_all)
+    roc_curve_tuple = roc_curve(labels_all, preds_all)
+    ap_score = average_precision_score(labels_all, preds_all)
+    return roc_score, ap_score, roc_curve_tuple
+    # except:
+    #     #handles the exception
+    #     preds_neg1 = [x[0] for x in preds_neg]
+    #     #sometimes it switches the neg and pos so if it happens it switch back
+    #     if sum(preds_pos) == 0:
+    #         preds_all = np.hstack([preds_neg1, preds_pos])
+    #         labels_all = np.hstack([np.ones(len(preds_neg1)), np.zeros(len(preds_pos))])
+    #     else:
+    #         preds_all = np.hstack([preds_pos, preds_neg1])
+    #         labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg1))])
+    #
+    #     roc_score = roc_auc_score(labels_all, preds_all)
+    #     roc_curve_tuple = roc_curve
+    #     ap_score = average_precision_score(labels_all, preds_all)
+    #     return roc_score, ap_score, roc_curve_tuple
 
 
 
@@ -134,7 +134,7 @@ def katz_scores(g_train, nodelist0, beta =  0.006):
 
 #Input:edge list to train on,edge list to test on, scores matrix of other metrics
 #Output: mmmmh not sure yet
-def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, pw, iw, c = 0.9):
+def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, pw, iw, c = 0.07):
 
     train_pos, train_neg, train_all = test_split1
     test_pos, test_neg, test_all = test_split2
@@ -150,7 +150,7 @@ def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, pw, iw,
     labels_all = np.hstack([np.ones(len(train_pos)), np.zeros(len(train_neg))])
     clf = LinearSVC(C=c)
     clf.fit(preds_all, labels_all)
-
+    print(clf.coef_)
     #Test SVM
     preds_test_all = np.vstack([att_test_pos, att_test_neg])
     labels_test = np.hstack([np.ones(len(test_pos)), np.zeros(len(test_neg))])
@@ -177,6 +177,7 @@ def bipartite_data_edge(G, adj, nodelist0):
     edges = edges_tuple[0]
     mapping = nodelabel_to_index(nodelist0)
     edge_tuples = [(min(edge[0], edge[1]), max(edge[0], edge[1])) for edge in edges]
+
     set_edge = set(edge_tuples)
     #create negative edges list
     #don't include edges that are between node in same groups
@@ -205,18 +206,19 @@ def create_attributes(edge_list, ka_scores, pa_scores, sh_scores, pw, iw):
     attr = np.zeros((edge_list.shape[0], 5))
     n = 0
     for edge in edge_list:
-        attr[n][0] = ka_scores[edge[0], edge[1]]
-        attr[n][2] = sh_scores[edge[0], edge[1]]
-        attr[n][1] = pa_scores[edge[0], edge[1]]
+        attr[n][2] = ka_scores[edge[0], edge[1]]
+        attr[n][1] = sh_scores[edge[0], edge[1]]
+        attr[n][0] = pa_scores[edge[0], edge[1]]
         attr[n][3] = pw[edge[0], edge[1]]
-        attr[n][4] = iw[edge[0], edge[1]]
+        attr[n][2] = iw[edge[0], edge[1]]
         n = n + 1
     return attr
 
 #Input: array of graphs
 #output:dict of performance results
-def calculate_time_score(arr, nodelist0, c):
+def calculate_time_score(arr, nodelist0):
     if len(arr) == 2:
+        mat = {}
         uns_res = {}
         pa_scores = preferential_attachment_scores(arr[0], nodelist0)
         ka_scores = katz_scores(arr[0], nodelist0)
@@ -225,8 +227,12 @@ def calculate_time_score(arr, nodelist0, c):
         uns_res["ka"] = get_roc_score(test_pos, test_neg, ka_scores)
         uns_res["pa"] = get_roc_score(test_pos,test_neg, pa_scores)
         uns_res["sh"] = get_roc_score(test_pos,test_neg, sh_scores)
-        return uns_res
+        mat["ka"] = ka_scores
+        mat["pa"] = pa_scores
+        mat["sh"] = sh_scores
+        return uns_res, mat
     else:
+        mat = {}
         ka_mat = []
         pa_mat = []
         sh_mat = []
@@ -260,14 +266,17 @@ def calculate_time_score(arr, nodelist0, c):
         pred_sh = time_series_predict(true_sh, t).reshape(sh_scores.shape)
 
         pw, iw = extract_edge_attribute(arr[-2], nx.to_numpy_matrix(arr[-2], nodelist=nodelist0), nodelist0)
-        pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, all_edge], [ka_scores, pred_ka] , [pa_scores, pred_pa], [sh_scores, pred_sh], pw, iw, c)
+        pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, all_edge], [ka_scores, pred_ka] , [pa_scores, pred_pa], [sh_scores, pred_sh], pw, iw)
 
         uns_res["ka"] = get_roc_score(test_pos, test_neg, pred_ka)
         uns_res["pa"] = get_roc_score(test_pos,test_neg, pred_pa)
         uns_res["sh"] = get_roc_score(test_pos,test_neg, pred_sh)
         uns_res["svm"] = roc_auc_score(labels_svm, pred_svm), average_precision_score(labels_svm, pred_svm), roc_curve(labels_svm, pred_svm)
-
-        return uns_res
+        mat["ka"] = pred_ka
+        mat["svm"] = pred_svm
+        mat["pa"] = pred_pa
+        mat["sh"] = pred_sh
+        return uns_res, mat
 
 
 #Input: scores matrix
@@ -281,19 +290,17 @@ def mat_to_arr(mat):
 #Input:array of flattened metrics score
 #Output: predicted one step ahead metrics score
 def time_series_predict(arr,should):
-    predicted = []
+    predicted = np.zeros(arr.shape[1])
     for n in tqdm(range(arr.shape[1])):
         if should[0,n] == 1:
             lr = LinearRegression().fit(np.asarray(range(len(arr[:, n]))).reshape(-1, 1), arr[:, n])
             val = lr.predict(np.asarray(len(arr[:,n])).reshape(1, -1))
             # predicted.append(ARIMA(arr[:, n].T, order=(0,0,1)).fit().forecast()[0])
-            predicted.append(val[0])
-        else:
-            predicted.append(0)
+            predicted[n] = val[0]
     return np.asarray(predicted)
 
 
-def result_formater(res):
+def result_formater(res, graph_date):
     plt.figure()
     plt.plot([0,1],[0,1],"g--")
     label={"ka":"Katz Index AUC = ", "pa":"Preferential Attachment Index AUC = ",
@@ -306,16 +313,18 @@ def result_formater(res):
     plt.xlabel("False Positive Rate")
     plt.ylabel("True Positive Rate")
     plt.title("ROC Curve")
-    plt.savefig("res1.pdf",
+    plt.savefig("figures/ROC/ROC_"+graph_date+".pdf",
                 format = "pdf",
                 dpi = 1000,
                 bbox_inches = "tight")
     plt.close()
 
-def cross_val(arr, nodelist0):
+def cross_val_split(arr, nodelist0):
     if len(arr) < 3:
         raise ValueError("wesh")
     key=["ka", "pa", "sh", "svm"]
+    label={"ka":"Katz Index", "pa":"Preferential Attachment Index",
+           "sh":"Hyperbolic Sine Index", "svm":"SVM"}
     res1 = {}
     std = {}
     mean_res = {}
@@ -323,13 +332,25 @@ def cross_val(arr, nodelist0):
         mean_res[k] = 0
         res1[k] = []
     for n in range(3, len(arr) + 1):
-        res = calculate_time_score(arr[0:n], nodelist0)
+        res, __ = calculate_time_score(arr[0:n], nodelist0)
+        result_formater(res, arr[n-1].name)
         for k in key:
             res1[k].append(res[k][0])
             mean_res[k] += res[k][0]/(len(arr) - 2)
     for k in key:
         std[k] = np.std(res1[k])
-    return mean_res, std
+        plt.plot(res1[k], label = label[k])
+    plt.legend(loc = "lower right")
+    plt.xlabel("")
+    plt.ylabel("AUC")
+    plt.title("AUC evolution through time")
+    plt.savefig("figures/AUC_evolution.pdf",
+                format = "pdf",
+                dpi = 1000,
+                bbox_inches = "tight")
+    plt.close()
+
+    return mean_res, std , res1
 
 ####flemme de faire que sa s'adapte####
 def opti_hyperparam(arr, nodelist0):
@@ -342,9 +363,9 @@ def opti_hyperparam(arr, nodelist0):
             g1.add_edge(u, v)
     adj = nx.to_numpy_matrix(g1, nodelist0)
     t = mat_to_arr(adj)
-    for a in np.arange(0.1, 1, 0.1):
+    for a in np.arange(0.01, 0.2, 0.01):
         print(a)
-        res = calculate_time_score(arr, nodelist0, a)["svm"][0]
+        res, __ = calculate_time_score(arr, nodelist0, a)["svm"][0]
         print(res," ",a)
         if res>best:
             best = res
@@ -390,6 +411,62 @@ def printer(res):
         print(key," AUC: ",res[key][0])
         print(key," APR: ",res[key][1])
 
+def threshold_prediction(score_matrix, res, edge_list, edge_label):
+    ind, treshold = gmeans(res[2])
+    pred = []
+    for edge in edge_list:
+        if score_matrix[edge[0],edge[1]]<=treshold:
+            pred.append(0)
+        else:
+            pred.append(1)
+    acc = 0
+    for n in range(len(pred)):
+        if pred[n] == edge_label[n]:
+            acc += 1
+
+    return pred, acc / len(pred)
+
+def get_edge_label(g, edge_list, nodelist0):
+    edge_label = []
+    for edge in edge_list:
+        if nodelist0[edge[0]] in g.neighbors(nodelist0[edge[1]]):
+            edge_label.append(1)
+        else:
+            edge_label.append(0)
+    return edge_label
+
+def new_edge(g1, g2, nodelist0):
+    adj = nx.to_numpy_matrix(g2, nodelist = nodelist0)
+    new_edge = []
+    pos_edge, __, ____ = bipartite_data_edge(g2, adj, nodelist0)
+
+    for edge in pos_edge:
+        if  nodelist0[edge[0]] not in g1.neighbors(nodelist0[edge[1]]):
+            new_edge.append(edge)
+    return new_edge
+
+def diss_edge(g1, g2, nodelist0):
+    adj = nx.to_numpy_matrix(g2, nodelist = nodelist0)
+    diss_edge = []
+    __ , neg_edge, ___ = bipartite_data_edge(g2, adj, nodelist0)
+
+    for edge in neg_edge:
+        if  nodelist0[edge[0]] in g1.neighbors(nodelist0[edge[1]]):
+            diss_edge.append(edge)
+    return diss_edge
+
+def analyze_accuracy(arr, nodelist0):
+    roc_curve, scores = calculate_time_score(arr, nodelist0)
+    new_edges = new_edge(arr[-2], arr[-1], nodelist0)
+    label_new = get_edge_label(arr[-1], new_edges, nodelist0)
+    diss_edges = diss_edge(arr[-2], arr[-1], nodelist0)
+    label_diss = get_edge_label(arr[-1], diss_edges, nodelist0)
+    for key, score_matrix in scores.items():
+        pred, acc = threshold_prediction(score_matrix, roc_curve[key], new_edges, label_new)
+        print("new edges accuracy: ",acc)
+        pred, acc = threshold_prediction(score_matrix, roc_curve[key], diss_edges, label_diss)
+        print("dissapeared edges accuracy: ",acc)
+
 dir = "final_graph/graph*"
 arr=[]
 for path in glob.glob(dir,recursive=True):
@@ -399,5 +476,5 @@ for path in glob.glob(dir,recursive=True):
         arr.append(g)
 
 nodelist0=list(arr[0])
-a, best = opti_hyperparam(arr, nodelist0)
-print(a, " ", best)
+res, mat = calculate_time_score(arr, nodelist0)
+print(res["svm"][0])
