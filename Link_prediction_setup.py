@@ -17,7 +17,7 @@ from scipy.sparse import identity
 import warnings
 from sklearn.svm import LinearSVC
 from tqdm  import tqdm
-
+from graphic_base import GraphicBase
 
 
 warnings.filterwarnings("ignore")
@@ -61,22 +61,6 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
     roc_curve_tuple = roc_curve(labels_all, preds_all)
     ap_score = average_precision_score(labels_all, preds_all)
     return roc_score, ap_score, roc_curve_tuple
-    # except:
-    #     #handles the exception
-    #     preds_neg1 = [x[0] for x in preds_neg]
-    #     #sometimes it switches the neg and pos so if it happens it switch back
-    #     if sum(preds_pos) == 0:
-    #         preds_all = np.hstack([preds_neg1, preds_pos])
-    #         labels_all = np.hstack([np.ones(len(preds_neg1)), np.zeros(len(preds_pos))])
-    #     else:
-    #         preds_all = np.hstack([preds_pos, preds_neg1])
-    #         labels_all = np.hstack([np.ones(len(preds_pos)), np.zeros(len(preds_neg1))])
-    #
-    #     roc_score = roc_auc_score(labels_all, preds_all)
-    #     roc_curve_tuple = roc_curve
-    #     ap_score = average_precision_score(labels_all, preds_all)
-    #     return roc_score, ap_score, roc_curve_tuple
-
 
 
 #Input:ROC curve from scikit roc_curve() function and root bool to know which of the two method to use
@@ -150,7 +134,7 @@ def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, pw, iw,
     labels_all = np.hstack([np.ones(len(train_pos)), np.zeros(len(train_neg))])
     clf = LinearSVC(C=c)
     clf.fit(preds_all, labels_all)
-    print(clf.coef_)
+
     #Test SVM
     preds_test_all = np.vstack([att_test_pos, att_test_neg])
     labels_test = np.hstack([np.ones(len(test_pos)), np.zeros(len(test_neg))])
@@ -216,7 +200,7 @@ def create_attributes(edge_list, ka_scores, pa_scores, sh_scores, pw, iw):
 
 #Input: array of graphs
 #output:dict of performance results
-def calculate_time_score(arr, nodelist0):
+def calculate_time_score(arr, nodelist0, month_gap = 1):
     if len(arr) == 2:
         mat = {}
         uns_res = {}
@@ -261,9 +245,9 @@ def calculate_time_score(arr, nodelist0):
 
         train = bipartite_data_edge(arr[-2], nx.to_numpy_matrix(arr[-2], nodelist0), nodelist0)
         test_pos, test_neg, all_edge = bipartite_data_edge(arr[-1], nx.to_numpy_matrix(arr[-1], nodelist0), nodelist0)
-        pred_ka = time_series_predict(true_ka, t).reshape(ka_scores.shape)
-        pred_pa = time_series_predict(true_pa, t).reshape(pa_scores.shape)
-        pred_sh = time_series_predict(true_sh, t).reshape(sh_scores.shape)
+        pred_ka = time_series_predict(true_ka, t, month_gap).reshape(ka_scores.shape)
+        pred_pa = time_series_predict(true_pa, t, month_gap).reshape(pa_scores.shape)
+        pred_sh = time_series_predict(true_sh, t, month_gap).reshape(sh_scores.shape)
 
         pw, iw = extract_edge_attribute(arr[-2], nx.to_numpy_matrix(arr[-2], nodelist=nodelist0), nodelist0)
         pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, all_edge], [ka_scores, pred_ka] , [pa_scores, pred_pa], [sh_scores, pred_sh], pw, iw)
@@ -289,35 +273,34 @@ def mat_to_arr(mat):
 
 #Input:array of flattened metrics score
 #Output: predicted one step ahead metrics score
-def time_series_predict(arr,should):
+def time_series_predict(arr, should, month_gap):
     predicted = np.zeros(arr.shape[1])
     for n in tqdm(range(arr.shape[1])):
         if should[0,n] == 1:
             lr = LinearRegression().fit(np.asarray(range(len(arr[:, n]))).reshape(-1, 1), arr[:, n])
-            val = lr.predict(np.asarray(len(arr[:,n])).reshape(1, -1))
+            val = lr.predict(np.asarray(len(arr[:,n])+month_gap-1).reshape(1, -1))
             # predicted.append(ARIMA(arr[:, n].T, order=(0,0,1)).fit().forecast()[0])
             predicted[n] = val[0]
     return np.asarray(predicted)
 
 
-def result_formater(res, graph_date):
+def result_formater(res, path_folder, file_name):
     plt.figure()
     plt.plot([0,1],[0,1],"g--")
     label={"ka":"Katz Index AUC = ", "pa":"Preferential Attachment Index AUC = ",
            "sh":"Hyperbolic Sine Index AUC = ", "svm":"SVM AUC = "}
+    graphic = GraphicBase("ROC Curve",
+                          "",
+                          "False Positive Rate",
+                          "True Positive Rate",
+                          date_format=False)
     for key in res.keys():
         test_fpr, test_tpr, threshold = res[key][2]
-        plt.plot(test_fpr, test_tpr, label = label[key] + str(round(res[key][0], 3)))
+        graphic.ax.plot(test_fpr, test_tpr, label = label[key] + str(round(res[key][0], 3)), lw = 5)
+    graphic.ax.plot([0, 1], [0, 1], linestyle="--", lw = 5, label = "Random Classifier", alpha=.8)
+    plt.legend(loc = "lower right",prop={'size': 40})
+    graphic.save_graph(path_folder, file_name)
 
-    plt.legend(loc = "lower right")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title("ROC Curve")
-    plt.savefig("figures/ROC/ROC_"+graph_date+".pdf",
-                format = "pdf",
-                dpi = 1000,
-                bbox_inches = "tight")
-    plt.close()
 
 def cross_val_split(arr, nodelist0):
     if len(arr) < 3:
@@ -328,27 +311,25 @@ def cross_val_split(arr, nodelist0):
     res1 = {}
     std = {}
     mean_res = {}
+    graphic = GraphicBase("AUC evolution through time",
+                          "",
+                          "",
+                          "AUC",
+                          date_format=False)
     for k in key:
         mean_res[k] = 0
         res1[k] = []
     for n in range(3, len(arr) + 1):
         res, __ = calculate_time_score(arr[0:n], nodelist0)
-        result_formater(res, arr[n-1].name)
+        # result_formater(res, "figures/ROC/", "ROC_"+arr[n-1].name+".pdf")
         for k in key:
             res1[k].append(res[k][0])
             mean_res[k] += res[k][0]/(len(arr) - 2)
     for k in key:
         std[k] = np.std(res1[k])
-        plt.plot(res1[k], label = label[k])
-    plt.legend(loc = "lower right")
-    plt.xlabel("")
-    plt.ylabel("AUC")
-    plt.title("AUC evolution through time")
-    plt.savefig("figures/AUC_evolution.pdf",
-                format = "pdf",
-                dpi = 1000,
-                bbox_inches = "tight")
-    plt.close()
+        graphic.ax.plot(res1[k], label = label[k], lw = 5)
+    plt.legend(loc = "lower right",  prop={'size': 40})
+    graphic.save_graph("figures/ROC/","AUC_evolution.pdf")
 
     return mean_res, std , res1
 
@@ -453,19 +434,97 @@ def diss_edge(g1, g2, nodelist0):
     for edge in neg_edge:
         if  nodelist0[edge[0]] in g1.neighbors(nodelist0[edge[1]]):
             diss_edge.append(edge)
-    return diss_edge
+        return diss_edge
 
-def analyze_accuracy(arr, nodelist0):
-    roc_curve, scores = calculate_time_score(arr, nodelist0)
-    new_edges = new_edge(arr[-2], arr[-1], nodelist0)
-    label_new = get_edge_label(arr[-1], new_edges, nodelist0)
-    diss_edges = diss_edge(arr[-2], arr[-1], nodelist0)
-    label_diss = get_edge_label(arr[-1], diss_edges, nodelist0)
-    for key, score_matrix in scores.items():
-        pred, acc = threshold_prediction(score_matrix, roc_curve[key], new_edges, label_new)
-        print("new edges accuracy: ",acc)
-        pred, acc = threshold_prediction(score_matrix, roc_curve[key], diss_edges, label_diss)
-        print("dissapeared edges accuracy: ",acc)
+#cross-validation on same split length
+# obsolete since cross_val_xmonth
+def cross_val_rolling(arr, nodelist0, gap):
+    if len(arr) < 3:
+        raise ValueError("wesh")
+    key=["ka", "pa", "sh", "svm"]
+    label={"ka":"Katz Index", "pa":"Preferential Attachment Index",
+           "sh":"Hyperbolic Sine Index", "svm":"SVM"}
+    res1 = {}
+    std = {}
+    mean_res = {}
+    graphic = GraphicBase("AUC evolution through time",
+                          "",
+                          "",
+                          "AUC",
+                          date_format=False)
+    for k in key:
+        mean_res[k] = 0
+        res1[k] = []
+    for n in range(gap+1, len(arr) + 1):
+        res, __ = calculate_time_score(arr[n-gap-1:n], nodelist0)
+        result_formater(res, "figure/ROC_ROLLING/", "ROC_ROLL_"+arr[n-1].name+".pdf")
+        for k in key:
+            res1[k].append(res[k][0])
+            mean_res[k] += res[k][0]/(len(arr) - 2)
+    for k in key:
+        std[k] = np.std(res1[k])
+        graphic.ax.plot(res1[k], label = label[k], lw = 5)
+    plt.legend(loc = "lower right",  prop={'size': 40})
+    graphic.save_graph("figures/ROC/","Rolling_AUC_evolution.pdf")
+    return mean_res, std , res1
+
+# crossvalidation on xx month ahead prediction with either same or cumulative
+# split length
+def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
+    if len(arr) < 3:
+        raise ValueError("wesh")
+    key=["ka", "pa", "sh", "svm"]
+    label={"ka":"Katz Index", "pa":"Preferential Attachment Index",
+           "sh":"Hyperbolic Sine Index", "svm":"SVM"}
+    res1 = {}
+    std = {}
+    mean_res = {}
+
+    if cumul:
+        file_name = "Cumul_"+str(month_gap)+"_"
+    else:
+        if fixed_period<2:
+            raise ValueError("on peut pas predire avec un seul graph ou moins")
+        file_name = "Rolling_"+str(month_gap)+"_"+str(fixed_period)+"_"
+    for k in key:
+        mean_res[k] = 0
+        res1[k] = []
+    for n in range(3, len(arr)-month_gap+2):
+        if n+month_gap-1>=len(arr):
+            break
+        if cumul:
+            cop = arr[0:n-1]
+            cop.append(arr[n+month_gap-2])
+            for g in cop:
+                print(g.name)
+            res, __ = calculate_time_score(cop, nodelist0, month_gap)
+        else:
+            if n <=fixed_period:
+                continue
+            cop = arr[n-fixed_period-1:n-1]
+            cop.append(arr[n+month_gap-2])
+            for g in cop:
+                print(g.name)
+            res, __ = calculate_time_score(cop, nodelist0, month_gap)
+
+        result_formater(res, "figures/ROC/",file_name + "ROC"+cop[-1].name+".pdf")
+        for k in key:
+            res1[k].append(res[k][0])
+            mean_res[k] += res[k][0]
+    graphic = GraphicBase("AUC evolution through time",
+                          "",
+                          "",
+                          "AUC",
+                          date_format=False)
+    for k in key:
+        mean_res[k] = mean_res[k] / len(res1[k])
+        std[k] = np.std(res1[k])
+        graphic.ax.plot(res1[k], label = label[k] + " Mean AUC: " + str(round(mean_res[k],3)), lw = 5)
+    plt.legend( loc = "lower right",  prop={'size': 40})
+    graphic.save_graph("figures/ROC/",file_name+"_AUC_evolution.pdf")
+    return mean_res, std , res1
+
+
 
 dir = "final_graph/graph*"
 arr=[]
@@ -476,5 +535,6 @@ for path in glob.glob(dir,recursive=True):
         arr.append(g)
 
 nodelist0=list(arr[0])
-res, mat = calculate_time_score(arr, nodelist0)
-print(res["svm"][0])
+
+for n in range(1,7):
+    mean_res, std1, res1 = cross_val_xmonth(arr, nodelist0, n, False, 4)

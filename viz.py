@@ -58,7 +58,7 @@ def visualize_graph(G, with_labels=True, k=None, alpha=0.4, node_shape="o"):
     axis.set_xlim([1.2 * x for x in axis.get_xlim()])
     axis.set_ylim([1.2 * y for y in axis.get_ylim()])
     plt.tight_layout()
-    plt.savefig("figures/graph"+G.name+".pdf",format="pdf")
+    plt.savefig("figures/Graphs/graph"+G.name+".pdf",format="pdf")
     plt.close()
 
 def clean_reduce(g) -> None:
@@ -68,9 +68,12 @@ def clean_reduce(g) -> None:
 
     for comp in list(g):
         if comp in data.keys():
-            g.nodes()[comp]["name"] = data[comp]
+            if data[comp] == "Personalvorsorgestiftung der IBM Corporation, Forschungslaboratorium Zürich":
+                g.nodes()[comp]["name"] = "IBM"
+            else:
+                g.nodes()[comp]["name"] = data[comp]
         else:
-            g.nodes()[comp]["name"] = comp
+            g.nodes()[comp]["name"] = comp.replace("_"," ").title()
 
     set1 = [n for n in list(g) if g.nodes[n]["bipartite"]==0]
     set2 = [n for n in list(g) if g.nodes[n]["bipartite"]==1]
