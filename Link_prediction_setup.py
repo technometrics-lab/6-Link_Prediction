@@ -139,7 +139,7 @@ def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, pw, iw,
     #Test SVM
     preds_test_all = np.vstack([att_test_pos, att_test_neg])
     labels_test = np.hstack([np.ones(len(test_pos)), np.zeros(len(test_neg))])
-    return clf.decision_function(preds_test_all), labels_test
+    return clf.decision_function(preds_test_all), labels_test, clf.score(preds_test_all, labels_test)
 
 #Input:sparse matrix
 #Output:flat array
@@ -249,12 +249,12 @@ def calculate_time_score(arr, nodelist0, month_gap = 1):
         pred_sh = time_series_predict(true_sh, t, month_gap).reshape(sh_scores.shape)
 
         pw, iw = extract_edge_attribute(arr[-2], nx.to_numpy_matrix(arr[-2], nodelist=nodelist0), nodelist0)
-        pred_svm, labels_svm = SVM_score(train, [test_pos, test_neg, all_edge], [ka_scores, pred_ka] , [pa_scores, pred_pa], [sh_scores, pred_sh], pw, iw)
+        pred_svm, labels_svm, acc = SVM_score(train, [test_pos, test_neg, all_edge], [ka_scores, pred_ka] , [pa_scores, pred_pa], [sh_scores, pred_sh], pw, iw)
 
         uns_res["ka"] = get_roc_score(test_pos, test_neg, pred_ka)
         uns_res["pa"] = get_roc_score(test_pos,test_neg, pred_pa)
         uns_res["sh"] = get_roc_score(test_pos,test_neg, pred_sh)
-        uns_res["svm"] = roc_auc_score(labels_svm, pred_svm), average_precision_score(labels_svm, pred_svm), roc_curve(labels_svm, pred_svm)
+        uns_res["svm"] = roc_auc_score(labels_svm, pred_svm), average_precision_score(labels_svm, pred_svm), roc_curve(labels_svm, pred_svm), acc
         mat["ka"] = pred_ka
         mat["svm"] = pred_svm
         mat["pa"] = pred_pa
@@ -518,7 +518,7 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
             res2[k].append(round(res[k][3],3))
             res1[k].append(res[k][0])
             mean_res[k] += res[k][0]
-            mean_res2[k] += res2[k]
+            mean_res2[k] += res2[k][-1]
     graphic = GraphicBase("AUC evolution through time",
                           "",
                           "",
