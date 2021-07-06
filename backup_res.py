@@ -4,6 +4,7 @@ import scipy.sparse as sp
 import numpy as np
 import json
 import time
+import random
 from scipy.sparse.linalg import expm
 from networkx.readwrite import json_graph
 from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve
@@ -320,5 +321,7 @@ for p in path:
         arr.append(g)
 
 
-res=calculate_time_score(arr)
-result_formater(res)
+# res=calculate_time_score(arr)
+# result_formater(res)
+res = [(0,1),(12,32),(9,0),(1,22),(2,45),(23,1)]
+print(random.sample(res,k=3))

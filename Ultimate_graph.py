@@ -105,58 +105,58 @@ def prepare_data(args,cutoff=1000):
 
 
 
-    patent_annotaion_dict = dict()
-    for result_path in glob.glob(
-            patentsview_path + "/annotation/**/part*",
-            recursive=True):
-        N=0
-        try:
-            with open(result_path, 'r', encoding='utf-8') as file:
-                for line in tqdm(file):
-                    N+=1
-                    if N>cutoff:
-                        break
-                    json_line = json.loads(line)
-                    indeed_id = json_line['uid']
-                    if indeed_id not in patent_annotaion_dict:
-                        patent_annotaion_dict[indeed_id] = []
-                    if 'annotations' in json_line:
-                        annotations = json_line['annotations']
-                        for anno in annotations:
-                            term = anno['uri'].split("/")[-1].lower()
-                            if term in tech_list:
-                                patent_annotaion_dict[indeed_id].append(term)
-                    else:
-                        try:
-                            term = json_line['uri'].split("/")[-1].lower()
-                            if term in tech_list:
-                                patent_annotaion_dict[indeed_id].append(term)
-                        except:
-                            term = json_line['technologies'].split("/")[-1].lower()
-                            if term in tech_list:
-                                patent_annotaion_dict[indeed_id].append(term)
-        except:
-            continue
-
-    patent_company_dict = dict()
-    for result_path in glob.glob(
-            patentsview_path +"/linked/dataset.json/**/part*",
-            recursive=True):
-        N=0
-        try:
-            with open(result_path, 'r', encoding='utf-8') as file:
-                for line in tqdm(file):
-                    N += 1
-                    if N>cutoff:
-                        break
-                    json_line = json.loads(line)
-                    indeed_id = json_line['patent_id']
-                    if indeed_id not in patent_company_dict:
-                        patent_company_dict[indeed_id] = []
-                    company_id = json_line['uid']
-                    patent_company_dict[indeed_id].append(company_id)
-                    if company_id not in company_id_list:
-                        company_id_list.append(company_id)
+    # patent_annotaion_dict = dict()
+    # for result_path in glob.glob(
+    #         patentsview_path + "/annotation/**/part*",
+    #         recursive=True):
+    #     N=0
+    #     try:
+    #         with open(result_path, 'r', encoding='utf-8') as file:
+    #             for line in tqdm(file):
+    #                 N+=1
+    #                 if N>cutoff:
+    #                     break
+    #                 json_line = json.loads(line)
+    #                 indeed_id = json_line['uid']
+    #                 if indeed_id not in patent_annotaion_dict:
+    #                     patent_annotaion_dict[indeed_id] = []
+    #                 if 'annotations' in json_line:
+    #                     annotations = json_line['annotations']
+    #                     for anno in annotations:
+    #                         term = anno['uri'].split("/")[-1].lower()
+    #                         if term in tech_list:
+    #                             patent_annotaion_dict[indeed_id].append(term)
+    #                 else:
+    #                     try:
+    #                         term = json_line['uri'].split("/")[-1].lower()
+    #                         if term in tech_list:
+    #                             patent_annotaion_dict[indeed_id].append(term)
+    #                     except:
+    #                         term = json_line['technologies'].split("/")[-1].lower()
+    #                         if term in tech_list:
+    #                             patent_annotaion_dict[indeed_id].append(term)
+    #     except:
+    #         continue
+    #
+    # patent_company_dict = dict()
+    # for result_path in glob.glob(
+    #         patentsview_path +"/linked/dataset.json/**/part*",
+    #         recursive=True):
+    #     N=0
+    #     try:
+    #         with open(result_path, 'r', encoding='utf-8') as file:
+    #             for line in tqdm(file):
+    #                 N += 1
+    #                 if N>cutoff:
+    #                     break
+    #                 json_line = json.loads(line)
+    #                 indeed_id = json_line['patent_id']
+    #                 if indeed_id not in patent_company_dict:
+    #                     patent_company_dict[indeed_id] = []
+    #                 company_id = json_line['uid']
+    #                 patent_company_dict[indeed_id].append(company_id)
+    #                 if company_id not in company_id_list:
+    #                     company_id_list.append(company_id)
         except:
             continue
 
@@ -166,11 +166,11 @@ def prepare_data(args,cutoff=1000):
             if not indeed_annotaion_dict[key]==[]:
                 tech_comp_indeed.append((company,indeed_annotaion_dict[key]))
 
-    tech_comp_patent=[]
-    for key in patent_annotaion_dict.keys() & patent_company_dict.keys():
-        for company in patent_company_dict[key]:
-            if not patent_annotaion_dict[key]==[]:
-                tech_comp_patent.append((company,patent_annotaion_dict[key]))
+    # tech_comp_patent=[]
+    # for key in patent_annotaion_dict.keys() & patent_company_dict.keys():
+    #     for company in patent_company_dict[key]:
+    #         if not patent_annotaion_dict[key]==[]:
+    #             tech_comp_patent.append((company,patent_annotaion_dict[key]))
 
 
     return company_id_list, tech_comp_indeed, tech_comp_patent
@@ -185,17 +185,17 @@ def make_graph(company_id_list,tech_comp_indeed, tech_comp_patent):
         bi_dict[item[1]]=1
         G.add_edge(item[0],item[1],iw=n,pw=0)
 
-    for item in tqdm(tech_comp_patent):
-        n=tech_comp_patent.count(item)
-        bi_dict[item[0]]=0
-        bi_dict[item[1]]=1
-        if item[0] in list(G):
-            if item[0] in G.neighbors(item[1]):
-                G.add_edge(item[0], item[1], pw=n)
-            else:
-                G.add_edge(item[0], item[1], pw=n, iw=0)
-        else:
-            G.add_edge(item[0], item[1], pw=n, iw=0)
+    # for item in tqdm(tech_comp_patent):
+    #     n=tech_comp_patent.count(item)
+    #     bi_dict[item[0]]=0
+    #     bi_dict[item[1]]=1
+    #     if item[0] in list(G):
+    #         if item[0] in G.neighbors(item[1]):
+    #             G.add_edge(item[0], item[1], pw=n)
+    #         else:
+    #             G.add_edge(item[0], item[1], pw=n)
+    #     else:
+    #         G.add_edge(item[0], item[1], pw=n)
 
     nx.set_node_attributes(G,bi_dict,"bipartite")
 
@@ -238,7 +238,7 @@ def graph_maker(path,cutoff):
     G.name=path[0:6]
 
     res = json_graph.node_link_data(G)
-    dir = "graphs12232/"
+    dir = "graphsindeed/"
     if not os.path.exists(dir):
         os.makedirs(dir)
 

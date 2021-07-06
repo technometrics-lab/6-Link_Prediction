@@ -30,7 +30,7 @@ def describe_graph(G):
 
     print("Global clustering coefficient aka Transitivity: %.4f" %nx.transitivity(G))
 
-def visualize_graph(G, with_labels=True, k=None, alpha=0.4, node_shape="o"):
+def visualize_graph(G, with_labels=True, k=None, alpha=0.4, node_shape="o", pos = None):
     #nx.draw_spring(G, with_labels=with_labels, alpha = alpha)
     set2 = [n for n in G.nodes if G.nodes(data="bipartite")[n]==1]
     set1 = [n for n in G.nodes if G.nodes(data="bipartite")[n]==0]
@@ -39,8 +39,9 @@ def visualize_graph(G, with_labels=True, k=None, alpha=0.4, node_shape="o"):
     valueDegree = nx.degree(G, set2)
 
     plt.figure(1, figsize=(25, 15))
-    k = 2.3/math.sqrt(G.order())
-    pos = nx.spring_layout(G, k=k)
+    if pos==None:
+        k = 2.3/math.sqrt(G.order())
+        pos = nx.spring_layout(G, k=k)
 
     if with_labels:
         lab1 = nx.draw_networkx_labels(G, pos, labels=dict([(n, G.nodes(data="name")[n]) for n in G.nodes()]), font_size=20)
@@ -55,11 +56,13 @@ def visualize_graph(G, with_labels=True, k=None, alpha=0.4, node_shape="o"):
 
     plt.axis('off')
     axis = plt.gca()
+    # axis.set_title("Graph of "+G.name[0:4]+" "+G.name[4:6], fontsize=20)
     axis.set_xlim([1.2 * x for x in axis.get_xlim()])
     axis.set_ylim([1.2 * y for y in axis.get_ylim()])
     plt.tight_layout()
-    plt.savefig("figures/Graphs/graph"+G.name+".pdf",format="pdf")
+    plt.savefig("figures/indeedgraphs/graph"+G.name+".png",format="png")
     plt.close()
+    return pos
 
 def clean_reduce(g) -> None:
     map_path = "company_matcher2.json"
@@ -78,22 +81,20 @@ def clean_reduce(g) -> None:
     set1 = [n for n in list(g) if g.nodes[n]["bipartite"]==0]
     set2 = [n for n in list(g) if g.nodes[n]["bipartite"]==1]
 
-    deg_comp = dict(g.degree(set1))
-    top3=[get_key(deg_comp,n) for n in sorted(set(deg_comp.values()),reverse=True)[0:3]]
+    deg_comp = dict(g.degree())
+    top3=[get_key(deg_comp,n) for n in sorted(set(deg_comp.values()),reverse=True)]
     n1=list(set([n for n in g.neighbors(top3[0])]))
     n2=list(set([n for n in g.neighbors(top3[1])]))
     n3=list(set([n for n in g.neighbors(top3[2])]))
-    n1=random.choices(n1,k=10)
-    n2=random.choices(n2,k=8)
-    n3=random.choices(n3,k=6)
     n1.extend(n2)
     n1.extend(n3)
     n1.extend(top3)
     n1=set(n1)
     G_min=nx.subgraph(g,n1)
-    visualize_graph(G_min)
 
-dir = "final_graph/graph*"
+    visualize_graph(G_min)
+    return n1
+dir = "indeed_graph/graph*"
 for path in glob.glob(dir,recursive=True):
     with open(path, "r", encoding="utf-8") as file:
         #read each graph

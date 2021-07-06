@@ -15,6 +15,7 @@ from statsmodels.tsa.arima.model import ARIMA
 from scipy.sparse.linalg import inv
 from scipy.sparse import identity
 import warnings
+from sklearn.svm import SVC
 from sklearn.svm import LinearSVC
 from tqdm  import tqdm
 from graphic_base import GraphicBase
@@ -50,8 +51,6 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
             preds_neg.append(sigmoid(score_matrix[edge[0], edge[1]]))
         else:
             preds_neg.append(score_matrix[edge[0], edge[1]])
-    #sometimes it fails due to some numbers being arrays but i havent found The
-    #issue
 
     # Calculate scores
     preds_all = np.hstack([preds_pos, preds_neg])
@@ -60,7 +59,9 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, apply_sigmoid = False):
     roc_score = roc_auc_score(labels_all, preds_all)
     roc_curve_tuple = roc_curve(labels_all, preds_all)
     ap_score = average_precision_score(labels_all, preds_all)
-    return roc_score, ap_score, roc_curve_tuple
+
+    acc = threshold_prediction(preds_all, ["","1", roc_curve_tuple], labels_all)
+    return roc_score, ap_score, roc_curve_tuple, acc
 
 
 #Input:ROC curve from scikit roc_curve() function and root bool to know which of the two method to use
@@ -118,7 +119,7 @@ def katz_scores(g_train, nodelist0, beta =  0.006):
 
 #Input:edge list to train on,edge list to test on, scores matrix of other metrics
 #Output: mmmmh not sure yet
-def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, pw, iw, c = 0.07):
+def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, pw, iw, c = 0.06):
 
     train_pos, train_neg, train_all = test_split1
     test_pos, test_neg, test_all = test_split2
@@ -132,7 +133,7 @@ def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, pw, iw,
     #Train SVM
     preds_all = np.vstack([att_train_pos, att_train_neg])
     labels_all = np.hstack([np.ones(len(train_pos)), np.zeros(len(train_neg))])
-    clf = LinearSVC(C=c)
+    clf = SVC(C=c, gamma=0.00001)
     clf.fit(preds_all, labels_all)
 
     #Test SVM
@@ -178,22 +179,19 @@ def bipartite_data_edge(G, adj, nodelist0):
             else:
                 false_edge.add(false)
 
-    edge_neg = np.array([list(edge_tuple) for edge_tuple in false_edge])
+    edge_neg = [edge_tuple for edge_tuple in false_edge]
 
-
-
-    return np.array(edge_tuples), edge_neg, all_pos_edge
+    return edge_tuples, random.sample(edge_neg,k=len(edge_tuples)), all_pos_edge
 
 #Input:edge list to create feature vector for, scores matrices
 #Output: feature flat array for SVM
 def create_attributes(edge_list, ka_scores, pa_scores, sh_scores, pw, iw):
-    attr = np.zeros((edge_list.shape[0], 5))
+    attr = np.zeros((len(edge_list), 4))
     n = 0
     for edge in edge_list:
-        attr[n][2] = ka_scores[edge[0], edge[1]]
+        attr[n][3] = ka_scores[edge[0], edge[1]]
         attr[n][1] = sh_scores[edge[0], edge[1]]
         attr[n][0] = pa_scores[edge[0], edge[1]]
-        attr[n][3] = pw[edge[0], edge[1]]
         attr[n][2] = iw[edge[0], edge[1]]
         n = n + 1
     return attr
@@ -215,6 +213,7 @@ def calculate_time_score(arr, nodelist0, month_gap = 1):
         mat["pa"] = pa_scores
         mat["sh"] = sh_scores
         return uns_res, mat
+
     else:
         mat = {}
         ka_mat = []
@@ -260,6 +259,7 @@ def calculate_time_score(arr, nodelist0, month_gap = 1):
         mat["svm"] = pred_svm
         mat["pa"] = pred_pa
         mat["sh"] = pred_sh
+
         return uns_res, mat
 
 
@@ -333,7 +333,7 @@ def cross_val_split(arr, nodelist0):
 
     return mean_res, std , res1
 
-####flemme de faire que sa s'adapte####
+
 def opti_hyperparam(arr, nodelist0):
     res = []
     best = 0
@@ -392,20 +392,20 @@ def printer(res):
         print(key," AUC: ",res[key][0])
         print(key," APR: ",res[key][1])
 
-def threshold_prediction(score_matrix, res, edge_list, edge_label):
+def threshold_prediction(pred, res, edge_label):
     ind, treshold = gmeans(res[2])
-    pred = []
-    for edge in edge_list:
-        if score_matrix[edge[0],edge[1]]<=treshold:
-            pred.append(0)
+    pred_lab = []
+    for i in pred:
+        if i>= treshold:
+            pred_lab.append(1)
         else:
-            pred.append(1)
+            pred_lab.append(0)
     acc = 0
     for n in range(len(pred)):
-        if pred[n] == edge_label[n]:
+        if pred_lab[n] == edge_label[n]:
             acc += 1
 
-    return pred, acc / len(pred)
+    return acc / len(pred)
 
 def get_edge_label(g, edge_list, nodelist0):
     edge_label = []
@@ -477,7 +477,9 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
     label={"ka":"Katz Index", "pa":"Preferential Attachment Index",
            "sh":"Hyperbolic Sine Index", "svm":"SVM"}
     res1 = {}
+    res2 = {}
     std = {}
+    mean_res2 = {}
     mean_res = {}
 
     if cumul:
@@ -486,31 +488,35 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
         if fixed_period<2:
             raise ValueError("on peut pas predire avec un seul graph ou moins")
         file_name = "Rolling_"+str(month_gap)+"_"+str(fixed_period)+"_"
+
     for k in key:
         mean_res[k] = 0
         res1[k] = []
+
     for n in range(3, len(arr)-month_gap+2):
+
         if n+month_gap-1>=len(arr):
             break
+
         if cumul:
             cop = arr[0:n-1]
             cop.append(arr[n+month_gap-2])
-            for g in cop:
-                print(g.name)
             res, __ = calculate_time_score(cop, nodelist0, month_gap)
         else:
             if n <=fixed_period:
                 continue
+
             cop = arr[n-fixed_period-1:n-1]
             cop.append(arr[n+month_gap-2])
-            for g in cop:
-                print(g.name)
-            res, __ = calculate_time_score(cop, nodelist0, month_gap)
 
-        result_formater(res, "figures/ROC/",file_name + "ROC"+cop[-1].name+".pdf")
+            res, __ = calculate_time_score(cop, nodelist0, month_gap)
+        print(cop[-1].name," ",round(res["ka"][3],3))
+        result_formater(res, "figures/ROCindeed/",file_name + "ROC"+cop[-1].name+".pdf")
         for k in key:
+            res2[k].append(round(res[k][3],3))
             res1[k].append(res[k][0])
             mean_res[k] += res[k][0]
+            mean_res2[k] += res2[k]
     graphic = GraphicBase("AUC evolution through time",
                           "",
                           "",
@@ -521,12 +527,20 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
         std[k] = np.std(res1[k])
         graphic.ax.plot(res1[k], label = label[k] + " Mean AUC: " + str(round(mean_res[k],3)), lw = 5)
     plt.legend( loc = "lower right",  prop={'size': 40})
-    graphic.save_graph("figures/ROC/",file_name+"_AUC_evolution.pdf")
+    graphic.save_graph("figures/ROCindeed/",file_name+"_AUC_evolution.pdf")
+    graphic = GraphicBase("Accuracy evolution through time",
+                          "",
+                          "",
+                          "Accuracy",
+                          date_format=False)
+    for k in key:
+        mean_res2[k] = mean_res2[k] / len(res2[k])
+        graphic.ax.plot(res2[k], label = label[k] + " Mean Accuracy: " + str(round(mean_res2[k],3)), lw = 5)
+    plt.legend( loc = "lower right",  prop={'size': 40})
+    graphic.save_graph("figures/ROCindeed/",file_name+"_Accuracy_evolution.pdf")
     return mean_res, std , res1
 
-
-
-dir = "final_graph/graph*"
+dir = "indeed_graph/graph*"
 arr=[]
 for path in glob.glob(dir,recursive=True):
     with open(path, "r", encoding="utf-8") as file:
@@ -536,5 +550,4 @@ for path in glob.glob(dir,recursive=True):
 
 nodelist0=list(arr[0])
 
-for n in range(1,7):
-    mean_res, std1, res1 = cross_val_xmonth(arr, nodelist0, n, False, 4)
+cross_val_xmonth(arr, nodelist0,2)

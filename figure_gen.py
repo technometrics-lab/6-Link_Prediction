@@ -8,7 +8,7 @@ from tqdm  import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 from networkx.readwrite import json_graph
-
+from graphic_base import GraphicBase
 
 
 def get_key(dict, search_item):
@@ -20,7 +20,8 @@ def get_key(dict, search_item):
 map_path = "company_matcher2.json"
 with open(map_path, "r", encoding="utf-8") as file:
     data1 = json.load(file)
-dir = "final_graph/graph*"
+
+dir = "indeed_graph/graph*"
 arrdeg = []
 arrcomp = []
 arrtop = []
@@ -36,6 +37,7 @@ pw_dict = {}
 new_edge = []
 del_edge = []
 same_edge = []
+perc_edge = []
 g_old = 0
 for path in glob.glob(dir,recursive=True):
     with open(path, "r", encoding="utf-8") as file:
@@ -43,14 +45,17 @@ for path in glob.glob(dir,recursive=True):
         data = json.load(file)
         g=json_graph.node_link_graph(data)
         adj1 = nx.to_numpy_matrix(g)
+
+
+        #get number of edges for each tim
+        arrdeg.append(g.number_of_edges())
         #inspect new edge/ edge deletion and edge keeping
         if not g_old == 0:
             adj2 = nx.to_numpy_matrix(g_old, list(g))
-            new_edge.append(np.count_nonzero((adj1-adj2)==-1))
-            same_edge.append(np.count_nonzero(np.logical_and((adj1==1),(adj2==1))))
-            del_edge.append(np.count_nonzero((adj1-adj2)==1))
-        #get number of edges for each tim
-        arrdeg.append(g.size())
+            new_edge.append(np.count_nonzero((adj1-adj2)==-1)/2)
+            same_edge.append(np.count_nonzero(np.logical_and((adj1==1),(adj2==1)))/2)
+            del_edge.append(np.count_nonzero((adj1-adj2)==1)/2)
+            perc_edge.append((del_edge[-1]+new_edge[-1])/arrdeg[-1])
         #get size of largest connected component
         comp = list(nx.connected_components(g))
         largest_comp = len(max(comp, key=len))
@@ -85,132 +90,141 @@ for path in glob.glob(dir,recursive=True):
 
         g_old=g
 
-dir="figures/"
-plt.plot(arrdeg)
-plt.ylabel("Number of edges")
-plt.title("evolution of the number of edges in time")
-
-plt.savefig(dir+"number_edges.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
-
-plt.plot(arrcomp)
-plt.ylabel("Size of largest connected component")
-plt.title("evolution of the size of the largest connected component in time")
-
-plt.savefig(dir+"number_conncomp.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
+dir="figures/indeed_stats/"
+graphic = GraphicBase("Number of edges through time",
+                      "",
+                      "",
+                      "Number of edges",
+                      date_format=False)
+graphic.ax.plot(arrdeg)
+graphic.save_graph("figures/indeed_stats/","number_edges.pdf")
 
 
-plt.plot(arrtop)
-plt.ylabel("degree of most linked technology")
-plt.title("evolution of the degree of the most linked technology")
-
-plt.savefig(dir+"number_tech.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
+graphic = GraphicBase("Size of the largest connected component through time",
+                      "",
+                      "",
+                      "Size of largest connected component",
+                      date_format=False)
+graphic.ax.plot(arrcomp)
+graphic.save_graph("figures/indeed_stats/","number_conncomp.pdf")
 
 
-plt.plot(arrtopc)
-plt.ylabel("degree of most linked company")
-plt.title("evolution of the degree of the most linked company")
+graphic = GraphicBase("Degree of the most linked technology through time",
+                      "",
+                      "",
+                      "degree of most linked technology",
+                      date_format=False)
+graphic.ax.plot(range(len(arrtop)),arrtop)
+for x,y in zip(range(len(arrtop)), arrtop):
+    label = key_tech[x].replace("_"," ")
+    plt.annotate(label,
+                 (x,y),
+                 textcoords="offset points",
+                 xytext=(0,10),
+                 ha="center")
+graphic.save_graph("figures/indeed_stats/","number_tech.pdf")
 
-plt.savefig(dir+"number_company.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
+graphic = GraphicBase("Degree of the most linked company through time",
+                      "",
+                      "",
+                      "degree of most linked company",
+                      date_format=False)
+graphic.ax.plot(arrtopc)
+for x,y in zip(range(len(arrtopc)), arrtopc):
+    label = key_comp[x].replace("_"," ")
+    plt.annotate(label,
+                 (x,y),
+                 textcoords="offset points",
+                 xytext=(0,10),
+                 ha="center")
+graphic.save_graph("figures/indeed_stats/","number_company.pdf")
 
-plt.plot(iw_max)
-plt.ylabel("number of job openings")
-plt.title("Maximum number of job openings linking a company and technology by month")
 
-plt.savefig(dir+"iw_max.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
+graphic = GraphicBase("Maximum number of job opening linking a company and technology through time",
+                      "",
+                      "",
+                      "Number of job openings",
+                      date_format=False)
+graphic.ax.plot(iw_max)
+graphic.save_graph("figures/indeed_stats/","iw_max.pdf")
 
-plt.plot(pw_max)
-plt.ylabel("number of patents")
-plt.title("Maximum number of patents linking a company and technology by month")
 
-plt.savefig(dir+"pw_max.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
+graphic = GraphicBase("Maximum number of patents linking a company and technology through time",
+                      "",
+                      "",
+                      "Number of patents",
+                      date_format=False)
+graphic.ax.plot(pw_max)
+graphic.save_graph("figures/indeed_stats/","pw_max.pdf")
 
-plt.plot(iw_mean)
-plt.ylabel("number of job openings")
-plt.title("Mean number of patents linking a company and technology by month")
 
-plt.savefig(dir+"iw_mean.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
+graphic = GraphicBase("Mean number of job openings linking a company and technology through time",
+                      "",
+                      "",
+                      "Number of job openings",
+                      date_format=False)
+graphic.ax.plot(iw_mean)
+graphic.save_graph("figures/indeed_stats/","iw_mean.pdf")
 
-plt.plot(pw_mean)
-plt.ylabel("number of patents")
-plt.title("Mean number of patents linking a company and technology by month")
 
-plt.savefig(dir+"pw_mean.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
+graphic = GraphicBase("Mean number of patents linking a company and technology through time",
+                      "",
+                      "",
+                      "Number of patents",
+                      date_format=False)
+graphic.ax.plot(pw_mean)
+graphic.save_graph("figures/indeed_stats/","pw_mean.pdf")
 
-for key in iw_dict.keys():
-    sns.displot(iw_dict[key], kind="kde")
-    plt.title("density of job openings number for " + key)
-    plt.savefig(dir+"job_opening/iw_hist"+key+".pdf",
-                format = 'pdf',
-                dpi = 1000,
-                bbox_inches = 'tight')
-    plt.close()
+# for key in iw_dict.keys():
+#     sns.displot(iw_dict[key], kind="kde")
+#     plt.title("density of job openings number for " + key)
+#     plt.savefig(dir+"job_opening/iw_hist"+key+".pdf",
+#                 format = 'pdf',
+#                 dpi = 1000,
+#                 bbox_inches = 'tight')
+#     plt.close()
+#
+#     sns.displot(pw_dict[key], kind="kde")
+#     plt.title("density of patents number for " + key)
+#     plt.savefig(dir+"patent/pw_hist" + key + ".pdf",
+#                 format = 'pdf',
+#                 dpi = 1000,
+#                 bbox_inches = 'tight')
+#     plt.close()
 
-    sns.displot(pw_dict[key], kind="kde")
-    plt.title("density of patents number for " + key)
-    plt.savefig(dir+"patent/pw_hist" + key + ".pdf",
-                format = 'pdf',
-                dpi = 1000,
-                bbox_inches = 'tight')
-    plt.close()
+graphic = GraphicBase("New edges through time",
+                      "",
+                      "",
+                      "Number of new edges",
+                      date_format=False)
+graphic.ax.plot(new_edge)
+plt.xticks(range(0,len(del_edge), 6),["04-2018","10-2018","04-2019","10-2019","04-2020","10-2020"])
+graphic.save_graph("figures/indeed_stats/","new_edge.pdf")
 
-plt.plot(new_edge)
-plt.ylabel("number of edges")
-plt.title("number of new edges created by month")
 
-plt.savefig(dir+"new_edge.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
+graphic = GraphicBase("Edge disappearance through time",
+                      "",
+                      "",
+                      "Number of edge disapearing",
+                      date_format=False)
+graphic.ax.plot(del_edge)
+plt.xticks(range(0,len(del_edge), 6),["04-2018","10-2018","04-2019","10-2019","04-2020","10-2020"])
+graphic.save_graph("figures/indeed_stats/","del_edge.pdf")
 
-plt.plot(del_edge)
-plt.ylabel("number of edges")
-plt.title("number of edges dissapearing by month")
 
-plt.savefig(dir+"del_edge.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
+graphic = GraphicBase("Number of edges that survived from one month to another",
+                      "",
+                      "",
+                      "Number of edges",
+                      date_format=False)
+graphic.ax.plot(same_edge)
+graphic.save_graph("figures/indeed_stats/","same_edge.pdf")
 
-plt.plot(same_edge)
-plt.ylabel("number of edges")
-plt.title("number of edges that survived by month")
-
-plt.savefig(dir+"same_edge.pdf",
-            format = 'pdf',
-            dpi = 1000,
-            bbox_inches = 'tight')
-plt.close()
+graphic = GraphicBase("percentage of edge that appeared or dissapeared",
+                      "",
+                      "",
+                      "\% of edges",
+                      date_format=False)
+graphic.ax.plot(perc_edge)
+plt.xticks(range(0,len(del_edge), 6),["04-2018","10-2018","04-2019","10-2019","04-2020","10-2020"])
+graphic.save_graph("figures/indeed_stats/","perc_edge.pdf")

@@ -30,7 +30,7 @@ class GraphicBase:
         mid = (self.fig.subplotpars.right + self.fig.subplotpars.left)/2
 
         # Print title and suptitle
-        self.fig.suptitle(suptitle, x = mid, weight = 'bold', fontsize = 30)
+        self.fig.suptitle(suptitle, x = mid, weight = 'bold', fontsize = 40)
         self.ax.set_title(title, fontsize = 15, weight = 'bold')
 
         # Activate the grid
