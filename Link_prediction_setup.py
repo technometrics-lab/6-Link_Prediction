@@ -492,6 +492,8 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
     for k in key:
         mean_res[k] = 0
         res1[k] = []
+        res2[k] = []
+        mean_res2[k] = 0
 
     for n in range(3, len(arr)-month_gap+2):
 
