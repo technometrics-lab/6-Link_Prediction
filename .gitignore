@@ -6,6 +6,6 @@ graphs/
 figures/
 __pycache__/
 complete_graph/
-test_graph/
+test_graphs/
 get_company_name.py
 backup_res.py
