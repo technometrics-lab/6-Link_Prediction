@@ -5,7 +5,7 @@ import networkx as nx
 from networkx.readwrite import json_graph
 import time
 
-result_path = "final_graph/graph201803.json"
+result_path = "indeed_graph/graph201803.json"
 with open(result_path, 'r', encoding = 'utf-8') as file:
     data = json.load(file)
     g = json_graph.node_link_graph(data)

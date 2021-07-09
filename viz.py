@@ -81,7 +81,7 @@ def clean_reduce(g) -> None:
     set1 = [n for n in list(g) if g.nodes[n]["bipartite"]==0]
     set2 = [n for n in list(g) if g.nodes[n]["bipartite"]==1]
 
-    deg_comp = dict(g.degree())
+    deg_comp = dict(g.degree(set1))
     top3=[get_key(deg_comp,n) for n in sorted(set(deg_comp.values()),reverse=True)]
     n1=list(set([n for n in g.neighbors(top3[0])]))
     n2=list(set([n for n in g.neighbors(top3[1])]))

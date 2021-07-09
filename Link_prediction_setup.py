@@ -10,7 +10,7 @@ from sklearn.linear_model import LinearRegression
 from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import expm
 from networkx.readwrite import json_graph
-from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve
+from sklearn.metrics import roc_auc_score, average_precision_score, roc_curve, accuracy_score
 from statsmodels.tsa.arima.model import ARIMA
 from scipy.sparse.linalg import inv
 from scipy.sparse import identity
@@ -139,7 +139,7 @@ def SVM_score(test_split1, test_split2, ka_scores, pa_scores, sh_scores, pw, iw,
     #Test SVM
     preds_test_all = np.vstack([att_test_pos, att_test_neg])
     labels_test = np.hstack([np.ones(len(test_pos)), np.zeros(len(test_neg))])
-    return clf.decision_function(preds_test_all), labels_test, clf.score(preds_test_all, labels_test)
+    return clf.decision_function(preds_test_all), labels_test, accuracy_score(clf.predict(preds_test_all), labels_test)
 
 #Input:sparse matrix
 #Output:flat array
@@ -254,7 +254,8 @@ def calculate_time_score(arr, nodelist0, month_gap = 1):
         uns_res["ka"] = get_roc_score(test_pos, test_neg, pred_ka)
         uns_res["pa"] = get_roc_score(test_pos,test_neg, pred_pa)
         uns_res["sh"] = get_roc_score(test_pos,test_neg, pred_sh)
-        uns_res["svm"] = roc_auc_score(labels_svm, pred_svm), average_precision_score(labels_svm, pred_svm), roc_curve(labels_svm, pred_svm), acc
+        rocsvm = ["","", roc_curve(labels_svm, pred_svm)]
+        uns_res["svm"] = roc_auc_score(labels_svm, pred_svm), average_precision_score(labels_svm, pred_svm), rocsvm, threshold_prediction(pred_svm, rocsvm, labels_svm)
         mat["ka"] = pred_ka
         mat["svm"] = pred_svm
         mat["pa"] = pred_pa
@@ -275,7 +276,7 @@ def mat_to_arr(mat):
 #Output: predicted one step ahead metrics score
 def time_series_predict(arr, should, month_gap):
     predicted = np.zeros(arr.shape[1])
-    for n in tqdm(range(arr.shape[1])):
+    for n in range(arr.shape[1]):
         if should[0,n] == 1:
             lr = LinearRegression().fit(np.asarray(range(len(arr[:, n]))).reshape(-1, 1), arr[:, n])
             val = lr.predict(np.asarray(len(arr[:,n])+month_gap-1).reshape(1, -1))
@@ -512,7 +513,7 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
             cop.append(arr[n+month_gap-2])
 
             res, __ = calculate_time_score(cop, nodelist0, month_gap)
-        print(cop[-1].name," ",round(res["ka"][3],3))
+        print(cop[-1].name," ",round(res["svm"][3],3))
         result_formater(res, "figures/ROCindeed/",file_name + "ROC"+cop[-1].name+".pdf")
         for k in key:
             res2[k].append(round(res[k][3],3))
@@ -551,5 +552,15 @@ for path in glob.glob(dir,recursive=True):
         arr.append(g)
 
 nodelist0=list(arr[0])
+std_dict={}
+key=["ka", "pa", "sh", "svm"]
+for k in key:
+    std_dict[k]=[]
+for n in range(1,8):
+    _,std,___=cross_val_xmonth(arr, nodelist0,n, False, 6)
+    print("\n".join([str(x) for x in std]))
+    for k in key:
+        std_dict[k].append(std[k])
 
-cross_val_xmonth(arr, nodelist0,2)
+with open("std_mean_AUC.json", "w") as fp:
+    json.dump(std_dict, fp, sort_keys = True, indent = 4)
