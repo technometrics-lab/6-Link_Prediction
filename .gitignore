@@ -9,3 +9,5 @@ complete_graph/
 test_graphs/
 get_company_name.py
 backup_res.py
+geckodriver.exe
+geckodriver.log
