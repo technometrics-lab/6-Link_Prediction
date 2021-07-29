@@ -5,7 +5,6 @@ Created on Tue May  4 14:55:58 2021
 @author: antiago
 """
 
-
 import json
 import os
 import argparse
@@ -271,7 +270,7 @@ if __name__=='__main__':
                "20181001T000000","20181101T000000","20181201T000000"]
 
     graph_list=[]
-    for path in path_list[0:1]:
+    for path in path_list:
         graph=Graph(path)
         graph_list.append(graph)
         graph.start()

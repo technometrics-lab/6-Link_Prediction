@@ -46,7 +46,7 @@ map_path = "company_matcher2.json"
 with open(map_path, "r", encoding="utf-8") as file:
     data1 = json.load(file)
 
-dir = "final_graph/graph*"
+dir = "indeed_graph/graph*"
 arrdeg = []
 arrcomp = []
 arrtop = []
@@ -96,7 +96,7 @@ for path in glob.glob(dir,recursive=True):
         tech=[n for n in list(g) if g.nodes[n]["bipartite"]==1]
         deg_tech=dict(g.degree(tech))
         sort_tech=sorted(deg_tech.values(), reverse=True)
-        arrtop.append(sort_tech[0])
+        arrtop.append(sort_tech[1])
         key_tech.append(get_key(deg_tech, sort_tech[0]))
         # get degree evolution for each technology some will only be zero all the way
         # but i am too lazy to adapt it
@@ -107,8 +107,8 @@ for path in glob.glob(dir,recursive=True):
         comp=[n for n in list(g) if g.nodes[n]["bipartite"]==0]
         deg_comp=dict(g.degree(comp))
         sort_comp=sorted(deg_comp.values(), reverse=True)
-        arrtopc.append(sort_comp[3])
-        key_comp.append(data1[get_key(deg_comp, sort_comp[3])])
+        arrtopc.append(sort_comp[0])
+        key_comp.append(data1[get_key(deg_comp, sort_comp[0])])
 
         #analysis of IW and PW
         iw=nx.get_edge_attributes(g,"iw")

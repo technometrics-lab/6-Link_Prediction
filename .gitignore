@@ -11,3 +11,5 @@ get_company_name.py
 backup_res.py
 geckodriver.exe
 geckodriver.log
+std_mean_AUC.json
+std_mean_AUCcumul.json

@@ -31,17 +31,20 @@ for path in glob.glob(dir,recursive=True):
         data = json.load(file)
         g=json_graph.node_link_graph(data)
         res.append(g)
+
+
+print(nx.info(res[0]))
 key=["ka", "pa", "sh", "svm"]
 label={"ka":"Katz Index", "pa":"Preferential Attachment Index",
        "sh":"Hyperbolic Sine Index", "svm":"SVM"}
-ka = [0.873, 0.791, 0.734, 0.692, 0.685, 0.675]
-pa = [0.845, 0.768, 0.717, 0.692, 0.681, 0.672]
-hs = [0.873, 0.791, 0.734, 0.692, 0.685, 0.675]
-svm = [0.875, 0.794, 0.738, 0.701, 0.693, 0.684]
+ka = [0.853, 0.759, 0.689, 0.626, 0.622, 0.612]
+pa = [0.849, 0.754, 0.683, 0.65, 0.633, 0.619]
+hs = [0.853, 0.759, 0.689, 0.626, 0.621, 0.612]
+svm = [0.856, 0.762, 0.695, 0.641, 0.631, 0.621]
 
-graphic = GraphicBase("Mean AUC for different forecast range",
+graphic = GraphicBase("",
                       "",
-                      "Forecas range",
+                      "Forecast range",
                       "Mean AUC",
                       date_format=False)
 graphic.ax.plot(ka, label=label["ka"], lw =5)
@@ -50,4 +53,4 @@ graphic.ax.plot(hs, label =label["sh"], lw = 5)
 graphic.ax.plot(svm, label=label["svm"], lw = 5)
 plt.legend(loc ="upper right", prop={"size": 40})
 plt.xticks(range(0,len(ka)),["1 month","2 months","3 months","4 months","5 months","6 months"])
-graphic.save_graph("figures/","Mean_Acc_evo6.pdf")
+graphic.save_graph("figures/","Mean_Auc_evo6.pdf")
