@@ -15,6 +15,7 @@ import glob
 
 # script so that each graph have the same node set even though there is isolated nodes
 def Cleaner(arr):
+
     comp_list=[]
     dir = "final_graph/"
     # get the full node set by combining each node set
@@ -35,6 +36,7 @@ def Cleaner(arr):
         if not os.path.exists(dir):
             os.makedirs(dir)
 
+        #write new cleaned graphs
         with open(dir+dataset+".json","w") as outfile:
             json.dump(res,outfile)
 
@@ -47,6 +49,8 @@ if __name__ == '__main__':
         with open(result_path, "r", encoding="utf-8") as file:
             data = json.load(file)
             g=json_graph.node_link_graph(data)
+            #set graph name if not done already
             g.name=result_path[12:]
             arr.append(g)
+    # Clean the graphs and save them
     Cleaner(arr)

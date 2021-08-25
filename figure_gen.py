@@ -1,3 +1,4 @@
+# Create stat figures of the graph like edge number evolution, top technology, etc...
 import json
 import os
 import glob

@@ -1,0 +1,416 @@
+<!doctype html>
+<html class="no-js">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.17: http://docutils.sourceforge.net/" />
+<link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Graphic Base" href="graphic_base.html" /><link rel="prev" title="Cleaner" href="Cleaner.html" />
+
+    <meta name="generator" content="sphinx-4.2.0+, furo 2021.08.17.beta43"/>
+        <title>Link Prediction Setup - LP CT 0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?digest=910ac4ccc9d7c023151c34010d7b500fb9777a51" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?digest=16fb25fabf47304eee183a5e9af80b1ba98259b1" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  body[data-theme="dark"] {
+    --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+  }
+  @media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+  }
+</style>
+    <link media="(prefers-color-scheme: dark)" rel="stylesheet" href="_static/pygments_dark.css"></head>
+  <body>
+    
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path stroke="none" d="M0 0h24v24H0z" />
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="10" y1="12" x2="20" y2="12" />
+      <line x1="6" y1="18" x2="20" y2="18" />
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">LP CT 0.1 documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  
+  
+  <span class="sidebar-brand-text">LP CT 0.1 documentation</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Table of Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="Graph_maker.html">Graph Maker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Cleaner.html">Cleaner</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Link Prediction Setup</a></li>
+<li class="toctree-l1"><a class="reference internal" href="graphic_base.html">Graphic Base</a></li>
+<li class="toctree-l1"><a class="reference internal" href="figure_gen.html">Figure Gen</a></li>
+<li class="toctree-l1"><a class="reference internal" href="viz.html">Network Visualization</a></li>
+<li class="toctree-l1"><a class="reference internal" href="Load_graph.html">Load graphs</a></li>
+</ul>
+
+</div>
+</div>
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <article role="main">
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <section id="link-prediction-setup">
+<h1>Link Prediction Setup<a class="headerlink" href="#link-prediction-setup" title="Permalink to this headline">¶</a></h1>
+<p>Main File of model fitting, analysis and diagnostics.</p>
+<section id="training-functions">
+<h2>Training Functions<a class="headerlink" href="#training-functions" title="Permalink to this headline">¶</a></h2>
+<p><strong>preferential_attachment_scores</strong> (g_train: Networkx.classes.Graph, nodelist0:
+array) -&gt; array</p>
+<blockquote>
+<div><p>Computes the PA scores matrix for given graph and ordered according to nodelist0.</p>
+<dl class="simple">
+<dt><strong>Parameters</strong> :</dt><dd><ul class="simple">
+<li><p><strong>g_train</strong> (Netowrkx.classes.Graph) - graph on which to compute the scores.</p></li>
+<li><p><strong>nodelist0</strong> (array) - vertex list that gives the right ordering for the
+score matrix.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p><strong>sinh_scores</strong> (g_train: Networkx.classes.Graph, nodelist0: array, alpha: float)
+-&gt; array</p>
+<blockquote>
+<div><p>Computes the sinh scores matrix for given graph and ordered according to nodelist0.</p>
+<dl class="simple">
+<dt><strong>Parameters</strong> :</dt><dd><ul class="simple">
+<li><p><strong>g_train</strong> (Netowrkx.classes.Graph) - graph on which to compute the scores.</p></li>
+<li><p><strong>nodelist0</strong> (array) - vertex list that gives the right ordering for the
+score matrix.</p></li>
+<li><p><strong>alpha</strong> (float) - parameter to compute the scores.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p><strong>katz_scores</strong> (g_train: Networkx.classes.Graph, nodelist0: array, beta: float)
+-&gt; array</p>
+<blockquote>
+<div><p>Computes the katz scores matrix for given graph and ordered according to nodelist0.</p>
+<dl class="simple">
+<dt><strong>Parameters</strong> :</dt><dd><ul class="simple">
+<li><p><strong>g_train</strong> (Netowrkx.classes.Graph) - graph on which to compute the scores.</p></li>
+<li><p><strong>nodelist0</strong> (array) - vertex list that gives the right ordering for the
+score matrix.</p></li>
+<li><p><strong>beta</strong> (float) - parameter to compute the scores.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p><strong>SVM_scores</strong> (train_split: array, test_split: array, ka_scores: array, pa_scores:
+array, sh_scores: array, pw: array, iw: array, c: float) -&gt; array</p>
+<blockquote>
+<div><p>Trains an SVM on all the edges in train_split using KA,PA,SH scores then computes
+the score matrix for the test graph represented by test_split.</p>
+<dl class="simple">
+<dt><strong>Parameters</strong> :</dt><dd><ul class="simple">
+<li><p><strong>train_split</strong> (array) - array divided into positive and negative edges for
+training graphs.</p></li>
+<li><p><strong>test_split</strong> (array) - array divided into positive and negatives edges for
+the test graph.</p></li>
+<li><p><strong>ka_scores</strong> (array) - katz score matrices computed from the train graphs
+and test graph.</p></li>
+<li><p><strong>pa_scores</strong> (array) - PA score matrices computed from the train graphs
+and test graph.</p></li>
+<li><p><strong>sh_scores</strong> (array) - SH score matrices computed from the train graphs
+and test graph.</p></li>
+<li><p><strong>pw</strong> (array) - feature vector of number of patents linking a company and
+technology. Can be None.</p></li>
+<li><p><strong>iw</strong> (array) - feature vector of number of job openings linking a company and
+technology.</p></li>
+<li><p><strong>c</strong> (float) - regularization parameter of the SVM.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p><strong>get_best_thresh</strong> (edge_pos: array, edge_neg: array, score_matrix, svm:
+optional[Bool] = False) -&gt; array</p>
+<blockquote>
+<div><p>Computes the three best thresholds from three different methods.</p>
+<dl class="simple">
+<dt><strong>Parameters</strong> :</dt><dd><ul class="simple">
+<li><p><strong>edge_pos</strong> (array) - array that contains each positive edge coordinates.</p></li>
+<li><p><strong>edge_neg</strong> (array) - array that contains each negative edge coordinates.</p></li>
+<li><p><strong>score_matrix</strong> (array) - matrix that contains the score for each edge
+coordinate.</p></li>
+<li><p><strong>svm</strong> (Bool) - Boolean that indicates if the score matrix is obtained through
+the SVM.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</section>
+<section id="forecast-functions">
+<h2>Forecast Functions<a class="headerlink" href="#forecast-functions" title="Permalink to this headline">¶</a></h2>
+<p>Functions that compute the score matrices for the whole timeframe required and
+forecast their evolution.</p>
+<p><strong>time_series_predict</strong> (arr: array, should: array, month_gap: int) -&gt; array</p>
+<blockquote>
+<div><p>Uses the score matrices in arr to forecast the score matrix month_gap months in
+the future.</p>
+<dl class="simple">
+<dt><strong>Parameters</strong> :</dt><dd><ul class="simple">
+<li><p><strong>arr</strong> (array) - array of the training score matrices ordered by time.</p></li>
+<li><p><strong>should</strong> (array) - binary array that indicates if we should fit the time
+series to this edge or not.</p></li>
+<li><p><strong>month_gap</strong> (int) - number that indicates how far in the future we should
+forecast.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+<p><strong>calculate_time_score</strong> (arr: array, nodelist0: array, month_gap: optional[int] = 1) -&gt; dict</p>
+<blockquote>
+<div><p>Function that computes the score matrix for all graphs in arr and then forecast
+their evolution. It then runs the diagnostics and performance results. returns
+the performance result in a dict format.</p>
+<dl class="simple">
+<dt><strong>Parameters</strong> :</dt><dd><ul class="simple">
+<li><p><strong>arr</strong> (array) - array containing all the train graphs required and the
+test graph at the last position.</p></li>
+<li><p><strong>nodelist0</strong> (array) - common vertex ordering for all the graphs based on
+the first graph of the time series.</p></li>
+<li><p><strong>mont_gap</strong> (int) - number of month separating the last graph in the
+training set and the test graph.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</section>
+<section id="get-diagnostics-metrics-function">
+<h2>Get Diagnostics Metrics Function<a class="headerlink" href="#get-diagnostics-metrics-function" title="Permalink to this headline">¶</a></h2>
+<p>Functions to obtain diagnostics score and array for plots.</p>
+<p><strong>get_roc_score</strong> (edge_pos: array, edge_neg: array, score_matrix:
+array, thresholds: array, apply_sigmoid: optional[Bool] = False) -&gt; array</p>
+<blockquote>
+<div><p>This function computes the AUC, ROC curve, AP, Precision Recall curve and
+accuracy for given score matrix and thresholds. Does not take SVM score matrix
+as it is easier to compute diagnostics on it.</p>
+<dl class="simple">
+<dt><strong>Parameters</strong> :</dt><dd><ul class="simple">
+<li><p><strong>edge_pos</strong> (array) - array that contains each positive edge coordinates.</p></li>
+<li><p><strong>edge_neg</strong> (array) - array that contains each negative edge coordinates.</p></li>
+<li><p><strong>score_matrix</strong> (array) - matrix that contains the score for each edge
+coordinate.</p></li>
+<li><p><strong>thresholds</strong> (array) - array that contains the three best thresholds
+obtained from train data.</p></li>
+<li><p><strong>apply_sigmoid</strong> (Bool) - boolean that indicates if we should apply the
+sigmoid to the score matrix.</p></li>
+</ul>
+</dd>
+</dl>
+</div></blockquote>
+</section>
+</section>
+
+      </article>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="graphic_base.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Graphic Base</div>
+              </div>
+              <svg><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="Cleaner.html">
+              <svg><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Cleaner</div>
+                
+              </div>
+            </a>
+        </div>
+
+        <div class="related-information">
+              Copyright &#169; 2021, Santiago Anton, Dimitri Percia David, Alain Mermoud, Thomas Maillart, Anita Mezzetti
+            |
+            Built with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+              and
+              <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+              <a href="https://github.com/pradyunsg/furo">Furo theme</a>.
+            |
+            <a class="muted-link" href="_sources/link_prediction_setup.rst.txt"
+               rel="nofollow">
+              Show Source
+            </a>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            Contents
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Link Prediction Setup</a><ul>
+<li><a class="reference internal" href="#training-functions">Training Functions</a></li>
+<li><a class="reference internal" href="#forecast-functions">Forecast Functions</a></li>
+<li><a class="reference internal" href="#get-diagnostics-metrics-function">Get Diagnostics Metrics Function</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="./" id="documentation_options" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/scripts/main.js"></script>
+    </body>
+</html>

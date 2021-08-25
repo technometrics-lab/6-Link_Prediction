@@ -44,16 +44,16 @@ def visualize_graph(G, with_labels=True, k=None, alpha=0.4, node_shape="o", pos 
     # draw company nodes
     nc1 = nx.draw_networkx_nodes(G, pos, nodelist=set1, node_color='g', node_shape=node_shape,alpha=0.25,
                                  node_size=[v * 100 for v in dict(companyDegree).values()])
-    #draw edges
-    ec = nx.draw_networkx_edges(G, pos, alpha=alpha)
+    # draw edges
+    ec = nx.draw_networkx_edges(G, pos, alpha=alpha, width=2)
 
-    #final plot adjustments
+    # final plot adjustments
     plt.axis('off')
     axis = plt.gca()
     axis.set_xlim([1.2 * x for x in axis.get_xlim()])
     axis.set_ylim([1.2 * y for y in axis.get_ylim()])
     plt.tight_layout()
-    plt.savefig("figures/indeedgraphs/graph"+G.name+".png",format="png")
+    plt.savefig("figures/indeedgraphs/graph"+G.name+".png",format="png",dpi=500)
     plt.close()
     # this return only if we want same positioning for further plotting
     return pos
@@ -69,6 +69,7 @@ def clean_reduce(g) -> None:
     # set the name attribute for each node could be set later only on the
     # selected company
     for comp in list(g):
+        if comp in data:
             g.nodes()[comp]["name"] = data[comp]
         else:
             g.nodes()[comp]["name"] = comp.replace("_"," ").title()
@@ -77,7 +78,7 @@ def clean_reduce(g) -> None:
     set1 = [n for n in list(g) if g.nodes[n]["bipartite"]==0]
     set2 = [n for n in list(g) if g.nodes[n]["bipartite"]==1]
 
-    #get the top3 companies
+    # get the top3 companies
     deg_comp = dict(g.degree(set1))
     top3=[get_key(deg_comp,n) for n in sorted(set(deg_comp.values()),reverse=True)]
     # get their neigbors
@@ -87,10 +88,10 @@ def clean_reduce(g) -> None:
     n1.extend(n2)
     n1.extend(n3)
     n1.extend(top3)
-    #eliminate duplicates
+    # eliminate duplicates
     n1=set(n1)
     test = list(n1)
-    #dont know why but some companies get into neighborhoods even though they
+    # dont know why but some companies get into neighborhoods even though they
     # are not connected to the top3 comapnies so we get rid of them
     for elem in test:
         if elem.startswith("CH") and elem not in [top3[0], top3[1], top3[2]]:
