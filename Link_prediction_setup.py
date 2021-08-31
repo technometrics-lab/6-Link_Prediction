@@ -36,6 +36,7 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, thresholds, apply_sigmoid 
 
     # Store positive edge predictions
     preds_pos = []
+    print("test_set: ", len(edges_pos))
     for edge in edges_pos:
         if apply_sigmoid == True:
             preds_pos.append(sigmoid(score_matrix[edge[0], edge[1]]))
@@ -45,7 +46,6 @@ def get_roc_score(edges_pos, edges_neg, score_matrix, thresholds, apply_sigmoid 
 
     # Store negative edge predictions, actual values
     preds_neg = []
-
     for edge in edges_neg:
         if apply_sigmoid == True:
             preds_neg.append(sigmoid(score_matrix[edge[0], edge[1]]))
@@ -149,6 +149,7 @@ def preferential_attachment_scores(g_train, nodelist0):
 def katz_scores(g_train, nodelist0, beta =  0.013):
     adj_train = nx.to_numpy_matrix(g_train, nodelist=nodelist0)
     ka_score_matrix = np.linalg.inv(identity(adj_train.shape[1]) - beta * adj_train) - identity(adj_train.shape[1])
+    ka_score_matrix = ka_score_matrix / ka_score_matrix.max()
     return ka_score_matrix
 
 # Input:edge list to train on,edge list to test on, scores matrix of other metrics
@@ -167,13 +168,13 @@ def SVM_scores(train_split, test_split, ka_scores, pa_scores, sh_scores, pw, iw,
     # Train SVM
     preds_all = np.vstack([att_train_pos, att_train_neg])
     labels_all = np.hstack([np.ones(len(train_pos)), np.zeros(len(train_neg))])
-    clf = SVC(C=c, gamma=0.00001)
+    clf = SVC(C=c, gamma=0.00001, probability=True)
     clf.fit(preds_all, labels_all)
 
     # Test SVM
     preds_test_all = np.vstack([att_test_pos, att_test_neg])
     labels_test = np.hstack([np.ones(len(test_pos)), np.zeros(len(test_neg))])
-    return clf.decision_function(preds_test_all), labels_test, clf.decision_function(preds_all), labels_all
+    return clf.predict_proba(preds_test_all)[:,1], labels_test, clf.predict_proba(preds_all)[:,1], labels_all
 
 # Input:sparse matrix
 # Output:flat array
@@ -226,7 +227,7 @@ def create_attributes(edge_list, ka_scores, pa_scores, sh_scores, pw, iw):
         attr[n][3] = ka_scores[edge[0], edge[1]]
         attr[n][1] = sh_scores[edge[0], edge[1]]
         attr[n][0] = pa_scores[edge[0], edge[1]]
-        attr[n][2] = iw[edge[0], edge[1]]
+        attr[n][2] = pw[edge[0], edge[1]]
         n = n + 1
     return attr
 
@@ -241,11 +242,16 @@ def calculate_time_score(arr, nodelist0, month_gap = 1):
         pa_scores = preferential_attachment_scores(arr[0], nodelist0)
         ka_scores = katz_scores(arr[0], nodelist0)
         sh_scores = sinh_scores(arr[0], nodelist0)
+        train_pos, train_neg, all_edge = bipartite_data_edge(arr[0], nx.to_numpy_matrix(arr[0], nodelist0), nodelist0)
         test_pos, test_neg, all_edge = bipartite_data_edge(arr[-1], nx.to_numpy_matrix(arr[-1], nodelist0), nodelist0)
+        diff_pos = edge_diff(arr[0],arr[1],nodelist0)
         # get performance from second graph
-        uns_res["ka"] = get_roc_score(test_pos, test_neg, ka_scores)
-        uns_res["pa"] = get_roc_score(test_pos,test_neg, pa_scores)
-        uns_res["sh"] = get_roc_score(test_pos,test_neg, sh_scores)
+        t1 = get_best_thresh(train_pos,train_neg, ka_scores)
+        t2 = get_best_thresh(train_pos,train_neg, pa_scores)
+        t3 = get_best_thresh(train_pos,train_neg, sh_scores)
+        uns_res["ka"] = get_roc_score(test_pos, test_neg, ka_scores, t1)
+        uns_res["pa"] = get_roc_score(test_pos,test_neg, pa_scores, t2)
+        uns_res["sh"] = get_roc_score(test_pos,test_neg, sh_scores, t3)
         mat["ka"] = ka_scores
         mat["pa"] = pa_scores
         mat["sh"] = sh_scores
@@ -257,6 +263,9 @@ def calculate_time_score(arr, nodelist0, month_gap = 1):
         pa_mat = []
         sh_mat = []
         uns_res = {}
+        t_ka = []
+        t_pa = []
+        t_sh = []
         # create complete bipartite graph to obtain complete adjacency matrix
         g1 = nx.Graph(arr[0])
         for u in [n for n in list(g) if g.nodes[n]["bipartite"] == 0]:
@@ -270,7 +279,6 @@ def calculate_time_score(arr, nodelist0, month_gap = 1):
             pa_scores = preferential_attachment_scores(g0, nodelist0)
             ka_scores = katz_scores(g0, nodelist0)
             sh_scores = sinh_scores(g0, nodelist0)
-
             ka_mat.append(mat_to_arr(ka_scores))
             pa_mat.append(mat_to_arr(pa_scores))
             sh_mat.append(mat_to_arr(sh_scores))
@@ -292,7 +300,7 @@ def calculate_time_score(arr, nodelist0, month_gap = 1):
         pred_sh = time_series_predict(true_sh, t, month_gap).reshape(sh_scores.shape)
 
         # get patent and job openings numbers and train predict svm
-        pw1, iw1 = extract_edge_attribute(arr[-2], nx.to_numpy_matrix(arr[-2], nodelist0), nodelist0)
+        pw, iw = extract_edge_attribute(arr[-2], nx.to_numpy_matrix(arr[-2], nodelist0), nodelist0)
         pred_svm, labels_svm , pred_train_svm, labels_train_svm = SVM_scores(train,
             [test_pos, test_neg, all_edge], [ka_scores, pred_ka] , [pa_scores, pred_pa], [sh_scores, pred_sh], pw, iw)
 
@@ -300,7 +308,7 @@ def calculate_time_score(arr, nodelist0, month_gap = 1):
         tka = get_best_thresh(train[0], train[1], ka_scores)
         tpa = get_best_thresh(train[0], train[1], pa_scores)
         tsh = get_best_thresh(train[0], train[1], sh_scores)
-        tsvm = get_best_thresh(pred_train_svm, labels_train_svm, "", True)
+        tsvm = get_best_thresh(pred_svm, labels_svm, "", True)
         # obtain performance plots and metrics (except for svm)
         ka_res = get_roc_score(test_pos, test_neg, pred_ka, tka)
         pa_res = get_roc_score(test_pos, test_neg, pred_pa, tpa)
@@ -314,7 +322,7 @@ def calculate_time_score(arr, nodelist0, month_gap = 1):
         uns_res["ka"] = ka_res[0], ka_res[1], ka_res[2], ka_res[3], ka_res[4]
         uns_res["pa"] = pa_res[0], pa_res[1], pa_res[2], pa_res[3], pa_res[4]
         uns_res["sh"] = sh_res[0], sh_res[1], sh_res[2], sh_res[3], sh_res[4]
-        uns_res["svm"] = roc_auc_score(labels_svm, pred_svm),average_precision_score(labels_svm, pred_svm), roc_curve(labels_svm, pred_svm), precision_recall_curve(labels_svm, pred_svm), accsvm
+        uns_res["svm"] = roc_auc_score(labels_svm, pred_svm), average_precision_score(labels_svm, pred_svm), roc_curve(labels_svm, pred_svm), precision_recall_curve(labels_svm, pred_svm), accsvm
         # get final score matrices just in case
         mat["ka"] = pred_ka
         mat["svm"] = pred_svm
@@ -353,6 +361,8 @@ def time_series_predict(arr, should, month_gap):
 def result_formater(res, method, test_graph):
     label={"ka":"Katz Index", "pa":"Preferential Attachment Index",
            "sh":"Hyperbolic Sine Index", "svm":"SVM"}
+    mark_dict={"ka":"v", "pa":"<",
+           "sh":"s", "svm":"o"}
     # set up graphic title and axis label
     graphic = GraphicBase("",
                           "",
@@ -362,10 +372,11 @@ def result_formater(res, method, test_graph):
     # plot roc curve for each method
     for key in res.keys():
         test_fpr, test_tpr, threshold = res[key][2]
-        graphic.ax.plot(test_fpr, test_tpr, label = label[key] + " AUC = " + str(round(res[key][0], 3)), lw = 5)
+        graphic.ax.plot(test_fpr, test_tpr, label = label[key] + " AUC = " + str(round(res[key][0], 3)),
+                        lw = 5)
     graphic.ax.plot([0, 1], [0, 1], linestyle="--", lw = 5, label = "Random Classifier", alpha=.8)
     plt.legend(loc = "lower right",prop={'size': 40})
-    # save figure
+    # save figures
     graphic.save_graph("figures/ROCindeed/", method+"bROC"+test_graph+".pdf")
 
     graphic = GraphicBase("",
@@ -376,10 +387,11 @@ def result_formater(res, method, test_graph):
     # plot precision recall curve
     for key in res.keys():
         test_prec, test_rec, threshold = res[key][3]
-        graphic.ax.plot(test_rec, test_prec, label = label[key] + " AP = " + str(round(res[key][1], 3)), lw = 5)
+        graphic.ax.plot(test_rec, test_prec, label = label[key] + " AP = " + str(round(res[key][1], 3)),
+                         lw = 5)
     graphic.ax.plot([0, 1], [0.005, 0.005], linestyle="--", lw = 5, label = "Random Classifier", alpha=.8)
     plt.legend(loc = "upper right",prop={'size': 40})
-    # save figure
+    # save figures
     graphic.save_graph("figures/PRindeed/", method+"pAPR"+test_graph+".pdf")
     # save accuracies obtained from the three methods in json file
     d = {}
@@ -388,7 +400,7 @@ def result_formater(res, method, test_graph):
         d[k+"roc_gmeans"] = res[k][-1][1]
         d[k+"pr_fscore"] = res[k][-1][2]
 
-    with open("figures/accindeed/"+method+"pACC"+test_graph+".json","w") as outfile:
+    with open("figures/accindeed/"+method+"ACC_pos_"+test_graph+".json","w") as outfile:
         json.dump(d, outfile)
 
 
@@ -455,6 +467,9 @@ def get_ebunch(edge_list, nodelist0):
 def threshold_prediction(pred, threshold, edge_label):
 
     pred_lab = []
+    print(threshold)
+    print("median of scores ",np.median(pred))
+
     for i in pred:
         if i>= threshold:
             pred_lab.append(1)
@@ -464,7 +479,7 @@ def threshold_prediction(pred, threshold, edge_label):
     for n in range(len(pred)):
         if pred_lab[n] == edge_label[n]:
             acc += 1
-
+    print("accuracy: ",acc / len(pred))
     return acc / len(pred)
 
 def get_edge_label(g, edge_list, nodelist0):
@@ -476,11 +491,15 @@ def get_edge_label(g, edge_list, nodelist0):
             edge_label.append(0)
     return edge_label
 
-
-
+# input: array of graphs, ordering of nodes in nodelist0, the forecast range,
+# boolean indicator if cumulative or blocked cross validation, fixed period for
+# blocked cross validation
+# writes all the diagnostics figures for cross validation
 def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
+    # can't do cross val if <3
     if len(arr) < 3:
         raise ValueError("wesh")
+    # initialize all variables
     key=["ka", "pa", "sh", "svm"]
     label={"ka":"Katz Index", "pa":"Preferential Attachment Index",
            "sh":"Hyperbolic Sine Index", "svm":"SVM"}
@@ -500,13 +519,14 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
     res3 = []
     mean_res3 = []
 
+    # set up file names
     if cumul:
         file_name = "Cumul_"+str(month_gap)+"_"
     else:
         if fixed_period<2:
             raise ValueError("on peut pas predire avec un seul graph ou moins")
         file_name = "Rolling_"+str(month_gap)+"_"+str(fixed_period)+"_"
-
+    # init dictionaries
     for k in key:
         mean_res1[k] = 0
         res1[k] = []
@@ -519,11 +539,13 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
         mean_res32[k] = 0
         mean_res33[k] = 0
 
+    # cross validation loop
     for n in range(3, len(arr)-month_gap+2):
-
+        # safe guard
         if n+month_gap-1>=len(arr):
             break
 
+        # train models and compute diagnostics
         if cumul:
             cop = arr[0:n-1]
             cop.append(arr[n+month_gap-2])
@@ -537,8 +559,10 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
 
             res, __ = calculate_time_score(cop, nodelist0, month_gap)
 
+        # plot results
         result_formater(res, file_name, cop[-1].name)
 
+        # compute mean results
         for k in key:
             res1[k].append(res[k][0])
             mean_res1[k] += res[k][0]
@@ -557,6 +581,7 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
     mean_res3.append(mean_res32)
     mean_res3.append(mean_res33)
 
+    # mean results figures
     graphic = GraphicBase("",
                           "",
                           "",
@@ -567,7 +592,7 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
         std1[k] = np.std(res1[k])
         graphic.ax.plot(res1[k], label = label[k] + " Mean AUC: " + str(round(mean_res1[k],3)), lw = 5)
     plt.legend( loc = "lower right",  prop={'size': 40})
-    graphic.save_graph("figures/ROCindeed/",file_name+"p_AUC_evolution.pdf")
+    graphic.save_graph("figures/ROCindeed/",file_name+"_AUC_evolution.pdf")
 
     graphic = GraphicBase("",
                           "",
@@ -579,7 +604,7 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
         std2[k] = np.std(res2[k])
         graphic.ax.plot(res2[k], label = label[k] + " Mean AP: " + str(round(mean_res2[k],3)), lw = 5)
     plt.legend( loc = "lower right",  prop={'size': 40})
-    graphic.save_graph("figures/PRindeed/",file_name+"p_APR_evolution.pdf")
+    graphic.save_graph("figures/PRindeed/",file_name+"_APR_evolution.pdf")
     for i in [0,1,2]:
         graphic = GraphicBase("",
                               "",
@@ -590,8 +615,20 @@ def cross_val_xmonth(arr, nodelist0, month_gap, cumul = True, fixed_period = 0):
             mean_res3[i][k] = mean_res3[i][k] / len(res3[i][k])
             graphic.ax.plot(res3[i][k], label = label[k] + " Mean Accuracy: " + str(round(mean_res3[i][k],3)), lw = 5)
         plt.legend( loc = "lower right",  prop={'size': 40})
-        graphic.save_graph("figures/accindeed/",file_name+"_"+str(i)+"p_Acc_evolution.pdf")
+        graphic.save_graph("figures/accindeed/",file_name+"_"+str(i)+"_Acc_evolution.pdf")
 
+# computes the symetric difference between the two edges sets of graph g1 g2
+def edge_diff(g1,g2,nodelist0):
+    adj1 = nx.to_numpy_matrix(g1,nodelist0)
+    adj2 = nx.to_numpy_matrix(g2, nodelist0)
+    a,b,c = bipartite_data_edge(g1, adj1, nodelist0)
+    d, e , f = bipartite_data_edge(g2, adj2, nodelist0)
+    diff = []
+    for edge in d:
+        if edge not in a:
+            diff.append(edge)
+
+    return diff
 
 if __name__=='__main__':
     dir = "indeed_graph/graph*"

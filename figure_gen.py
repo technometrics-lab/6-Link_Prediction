@@ -1,4 +1,4 @@
-# Create stat figures of the graph like edge number evolution, top technology, etc...
+# Create stat figure of the graph like edge number evolution, top technology, etc...
 import json
 import os
 import glob
@@ -47,7 +47,7 @@ map_path = "company_matcher2.json"
 with open(map_path, "r", encoding="utf-8") as file:
     data1 = json.load(file)
 
-dir = "indeed_graph/graph*"
+dir = "test_graphs/graph*"
 arrdeg = []
 arrcomp = []
 arrtop = []
@@ -125,7 +125,7 @@ for path in glob.glob(dir,recursive=True):
 
 # basically we plot everything
 # sometimes added good xticks for time but not on the graphs i deemed unnecessary
-dir="figures/"
+dir="figure/"
 graphic = GraphicBase("Number of edges through time",
                       "",
                       "",
@@ -133,7 +133,7 @@ graphic = GraphicBase("Number of edges through time",
                       date_format=False)
 graphic.ax.plot(arrdeg)
 plt.xticks(range(0,len(arrdeg), 6),["03-2018","09-2018","03-2019","09-2019","03-2020","09-2020"])
-graphic.save_graph("figures/","number_edges.pdf")
+graphic.save_graph("figure/","number_edges.pdf")
 
 
 graphic = GraphicBase("Size of the largest connected component through time",
@@ -143,7 +143,7 @@ graphic = GraphicBase("Size of the largest connected component through time",
                       date_format=False)
 graphic.ax.plot(arrcomp)
 plt.xticks(range(0,len(arrcomp), 6),["03-2018","09-2018","03-2019","09-2019","03-2020","09-2020"])
-graphic.save_graph("figures/","number_conncomp.pdf")
+graphic.save_graph("figure/","number_conncomp.pdf")
 
 graphic = GraphicBase("size percentage of the largest connected component through time",
                       "",
@@ -152,7 +152,7 @@ graphic = GraphicBase("size percentage of the largest connected component throug
                       date_format=False)
 graphic.ax.plot(perc_comp)
 plt.xticks(range(0,len(arrcomp), 6),["03-2018","09-2018","03-2019","09-2019","03-2020","09-2020"])
-graphic.save_graph("figures/","perc_conncomp.pdf")
+graphic.save_graph("figure/","perc_conncomp.pdf")
 
 
 graphic = GraphicBase("Degree of the most linked technology through time",
@@ -170,7 +170,7 @@ for x,y in zip(range(len(arrtop)), arrtop):
                  xytext=(0,10),
                  fontsize=20,
                  ha="center")
-graphic.save_graph("figures/","number_tech.pdf")
+graphic.save_graph("figure/","number_tech.pdf")
 
 graphic = GraphicBase("Degree of the most linked company through time",
                       "",
@@ -187,7 +187,7 @@ for x,y in zip(range(len(arrtopc)), arrtopc):
                  xytext=(0,10),
                  rotation = 45,
                  ha="center")
-graphic.save_graph("figures/","number_company.pdf")
+graphic.save_graph("figure/","number_company.pdf")
 
 
 graphic = GraphicBase("Maximum number of job opening linking a company and technology through time",
@@ -196,7 +196,7 @@ graphic = GraphicBase("Maximum number of job opening linking a company and techn
                       "Number of job openings",
                       date_format=False)
 graphic.ax.plot(iw_max)
-graphic.save_graph("figures/","iw_max.pdf")
+graphic.save_graph("figure/","iw_max.pdf")
 
 
 graphic = GraphicBase("Maximum number of patents linking a company and technology through time",
@@ -205,7 +205,7 @@ graphic = GraphicBase("Maximum number of patents linking a company and technolog
                       "Number of patents",
                       date_format=False)
 graphic.ax.plot(pw_max)
-graphic.save_graph("figures/","pw_max.pdf")
+graphic.save_graph("figure/","pw_max.pdf")
 
 
 graphic = GraphicBase("Mean number of job openings linking a company and technology through time",
@@ -214,7 +214,7 @@ graphic = GraphicBase("Mean number of job openings linking a company and technol
                       "Number of job openings",
                       date_format=False)
 graphic.ax.plot(iw_mean)
-graphic.save_graph("figures/","iw_mean.pdf")
+graphic.save_graph("figure/","iw_mean.pdf")
 
 
 graphic = GraphicBase("Mean number of patents linking a company and technology through time",
@@ -223,7 +223,7 @@ graphic = GraphicBase("Mean number of patents linking a company and technology t
                       "Number of patents",
                       date_format=False)
 graphic.ax.plot(pw_mean)
-graphic.save_graph("figures/","pw_mean.pdf")
+graphic.save_graph("figure/","pw_mean.pdf")
 
 
 
@@ -234,7 +234,7 @@ graphic = GraphicBase("New edges through time",
                       date_format=False)
 graphic.ax.plot(new_edge)
 plt.xticks(range(0,len(del_edge), 6),["04-2018","10-2018","04-2019","10-2019","04-2020","10-2020"])
-graphic.save_graph("figures/","new_edge.pdf")
+graphic.save_graph("figure/","new_edge.pdf")
 
 
 graphic = GraphicBase("Edge disappearance through time",
@@ -244,7 +244,7 @@ graphic = GraphicBase("Edge disappearance through time",
                       date_format=False)
 graphic.ax.plot(del_edge)
 plt.xticks(range(0,len(del_edge), 6),["04-2018","10-2018","04-2019","10-2019","04-2020","10-2020"])
-graphic.save_graph("figures/","del_edge.pdf")
+graphic.save_graph("figure/","del_edge.pdf")
 
 
 graphic = GraphicBase("Number of edges that survived from one month to another",
@@ -253,7 +253,7 @@ graphic = GraphicBase("Number of edges that survived from one month to another",
                       "Number of edges",
                       date_format=False)
 graphic.ax.plot(same_edge)
-graphic.save_graph("figures/","same_edge.pdf")
+graphic.save_graph("figure/","same_edge.pdf")
 
 graphic = GraphicBase("percentage of edge that appeared or dissapeared",
                       "",
@@ -262,7 +262,7 @@ graphic = GraphicBase("percentage of edge that appeared or dissapeared",
                       date_format=False)
 graphic.ax.plot(perc_edge)
 plt.xticks(range(0,len(del_edge), 6),["04-2018","10-2018","04-2019","10-2019","04-2020","10-2020"])
-graphic.save_graph("figures/","perc_edge.pdf")
+graphic.save_graph("figure/","perc_edge.pdf")
 
 # for key, arr in techdeg.items():
 #     graphic = GraphicBase("Degree evolution of "+key.replace("_"," "),
@@ -272,4 +272,4 @@ graphic.save_graph("figures/","perc_edge.pdf")
 #                           date_format=False)
 #     graphic.ax.plot(arr)
 #     plt.xticks(range(0,len(del_edge), 6),["03-2018","09-2018","03-2019","09-2019","03-2020","09-2020"])
-#     graphic.save_graph("figures/","degevo"+key.replace("_"," ")+".pdf")
+#     graphic.save_graph("figure/","degevo"+key.replace("_"," ")+".pdf")

@@ -17,7 +17,7 @@ import glob
 def Cleaner(arr):
 
     comp_list=[]
-    dir = "final_graph/"
+    dir = "test_graphs/"
     # get the full node set by combining each node set
     for G in arr:
         comp_list = comp_list + list(G)
@@ -26,10 +26,8 @@ def Cleaner(arr):
     # for each graph add the missing nodes
     for G in arr:
         for comp in comp_set:
-            if
             if comp not in list(G):
                 G.add_node(comp,bipartite=0)
-
         #save them in final_graph
         dataset="graph"+G.name
         res = json_graph.node_link_data(G)
@@ -45,12 +43,11 @@ def Cleaner(arr):
 if __name__ == '__main__':
     # get all the uncleaned graphs in a list for Cleaner
     arr=[]
-    for result_path in glob.glob("graphs/graph*",recursive=True):
+    for result_path in glob.glob("test_graphs/graph*",recursive=True):
         with open(result_path, "r", encoding="utf-8") as file:
             data = json.load(file)
             g=json_graph.node_link_graph(data)
             #set graph name if not done already
-            g.name=result_path[12:]
             arr.append(g)
     # Clean the graphs and save them
     Cleaner(arr)
