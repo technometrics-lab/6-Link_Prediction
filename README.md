@@ -3,7 +3,7 @@ Link Prediction for Cybersecurity Companies and Technologies
 
 ## Goal
 
-This project aims to construct a series of bipartite networks that model the
+This project aims to construct a dynamic bipartite network that model the
 relationship between companies and technologies in th ecybersecurity landscape
 using job openings. Then predict the evolution of these networks in the future
 using link predictions algorithms.
